@@ -10,7 +10,7 @@ real_to_small_integer (SCM s_u)
   u = scm_to_double (s_u);
   if (u < (double) (SCM_MOST_POSITIVE_FIXNUM+1)
       && u >= (double) SCM_MOST_NEGATIVE_FIXNUM)
-    return SCM_I_MAKINUM ((scm_t_inum) u);
+    return SCM_I_MAKINUM ((long) u);
 
   scm_out_of_range ("real->small-integer", s_u);
 }
