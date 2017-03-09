@@ -1,21 +1,27 @@
-(use-modules (chop))
+(use-modules (mlg math))
 
-(define T1 (gettimeofday))
+(define (now)
+  (let ((T (gettimeofday)))
+    (+ (car T) (/ (cdr T) 1000000.0))))
+
+(define T1 (now))
 (define nums (map (lambda (x) (* 1.0 x)) (iota 1000000)))
 
-(define T2 (gettimeofday))
+(define T2 (now))
 (define A (map (lambda (x) (inexact->exact x)) nums))
 
-(define T3 (gettimeofday))
+(define T3 (now))
 (define B (map (lambda (x) (inexact->exact (round x))) nums))
 
-(define T4 (gettimeofday))
-;;(define C (map (lambda (x) (numerator (rationalize x 0))) nums))
-(define C (map real->small-integer nums))
-(define T5 (gettimeofday))
+(define T4 (now))
+(define C (map real->integer nums))
+(define T5 (now))
 
+(display "(inexact->exact x) ")
+(write (- T3 T2)) (newline)
 
-(write (- (+ (* 1000000 (car T2)) (cdr T2)) (+ (* 1000000 (car T1)) (cdr T1)))) (newline)
-(write (- (+ (* 1000000 (car T3)) (cdr T3)) (+ (* 1000000 (car T2)) (cdr T2)))) (newline)
-(write (- (+ (* 1000000 (car T4)) (cdr T4)) (+ (* 1000000 (car T3)) (cdr T3)))) (newline)
-(write (- (+ (* 1000000 (car T5)) (cdr T5)) (+ (* 1000000 (car T4)) (cdr T4)))) (newline)
+(display "(inexact->exact (round x)) ")
+(write (- T4 T3)) (newline)
+
+(display "(real->integer x) ")
+(write (- T5 T4)) (newline)
