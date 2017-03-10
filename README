@@ -1,0 +1,10 @@
+MLG's Guile Library
+
+This is a collection of fairly low-level Scheme functions focused on
+the boring grunge work of application programming.
+
+One might think of it as like the GTK's Glib project.
+
+In fact, some of the routines are intentionally similar to Glib.
+
+
