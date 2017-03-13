@@ -1,0 +1,7 @@
+PATTERNS
+
+from cat
+- A procedure like for-each that iterates on binary blocks read from a port
+- A syntax that takes a list of filenames and iterates on ports opened on those filenames. '-' would be current input port
+- A procedure that reads bytes from a port and sends them through a custom printer
+
