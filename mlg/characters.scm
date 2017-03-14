@@ -39,7 +39,7 @@
 
 (define (isdigit? c)
   "Return #t if C is a digit."
-  (char-set-contains? char-set:digit? c))  
+  (char-set-contains? char-set:digit c))  
 
 (define (isgraph? c)
   "Return #t if C is a graphic character."
@@ -61,11 +61,11 @@ Note that this includes both punctuation and symbols."
 
 (define (isspace? c)
   "Return #t if C is a whitespace character."
-   (char-set-contains? char-set:whitespace c)
+   (char-set-contains? char-set:whitespace c))
 
 (define (isupper? c)
   "Return #t if C is an uppercase letter."
-   (char-set-contains? char-set:uppercase c))
+   (char-set-contains? char-set:upper-case c))
 
 (define (isxdigit? c)
   "Return #t if C is hexadecimal digit."
@@ -92,7 +92,7 @@ Note that this includes both punctuation and symbols."
 (define (ascii-isdigit? c)
   "Return #t if C is both ASCII and a digit."
   (and
-   (char-set-contains? char-set:digit? c)
+   (char-set-contains? char-set:digit c)
    (char-set-contains? char-set:ascii c)))
 
 (define (ascii-isgraph? c)
@@ -129,7 +129,7 @@ Note that this includes both punctuation and symbols."
 (define (ascii-isupper? c)
   "Return #t if C is both ASCII and an uppercase letter."
   (and
-   (char-set-contains? char-set:uppercase c)
+   (char-set-contains? char-set:upper-case c)
    (char-set-contains? char-set:ascii c)))
 
 (define (ascii-isxdigit? c)
@@ -139,8 +139,8 @@ Note that this includes both punctuation and symbols."
    (char-set-contains? char-set:ascii c)))
 
 (define (tolower c)
-     "Return the lowercase character version of C"
-     (char-downcase c))
+  "Return the lowercase character version of C"
+  (char-downcase c))
 
 (define (toupper c)
   "Return the uppercase character version of C"

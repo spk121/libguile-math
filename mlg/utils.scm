@@ -3,6 +3,7 @@
   #:use-module (ice-9 rdelim)
   #:export (build-filename
 	    get-home-dir
+	    get-user-name
 	    get-user-data-dir
 	    get-user-config-dir
 	    get-user-cache-dir
@@ -107,7 +108,6 @@ in FILENAME"
       (string-copy (or (getenv "USERPROFILE")
 		       "C:\\Windows"))))
 
-
 (define (get-user-database-dir)
   (passwd:dir (getpwuid (getuid))))
 
@@ -122,6 +122,10 @@ in FILENAME"
       home-env)
      (else
       (get-user-database-dir)))))
+
+(define (get-user-name)
+  "Return the username of the current user."
+  (passwd:name (getpwuid (getuid))))
 
 (define (get-user-data-dir)
   "Return a path to the XDG data directory for the current user."
