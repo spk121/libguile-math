@@ -3,15 +3,103 @@
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:use-module (srfi srfi-1)
-  #:export (bytevector-list-length
+  #:export (bytevector-u8-map
+	    bytevector-u8-map!
+	    bytevector-u8-for-each
+	    bytevector-u8-fold
+	    bytevector-u8-map-to-list
+	    bytevector-list-length
 	    bytevector-list-append
 	    read-bytevector))
 
 (define *block-size* (* 16 1024))
 (define *maximum-read* #xffffffffffffffff)
 
+(define* (bytevector-u8-map proc bv #:optional (start 0) (end #f))
+  "Given a bytevector BV and a procedure PROC that takes an
+integer from 0 to 255 and returns an integer from 0 to 255, the
+procedure is applied over BV and a new bytevector is returned.
+If START and END are given, only a subsection of the bytevector
+is used as input."
+  (unless end
+    (set! end (bytevector-length bv)))
+  (let ((output (make-bytevector (- end start))))
+    (do ((i start (1+ i)))
+	((>= i end))
+      (bytevector-u8-set! output (- i start)
+			  (proc (bytevector-u8-ref bv i))))
+    output))
+
+(define* (bytevector-u8-map!  proc bv #:optional (start 0) (end #f))
+  "Given a bytevector BV and a procedure PROC that takes an
+integer from 0 to 255 and returns an integer from 0 to 255, the
+procedure is applied over BV and the bytevector is modified in place.
+If START and END are given, only a subsection of the bytevector
+is processed.
+
+The return value is unspecified."
+  (unless end
+    (set! end (bytevector-length bv)))
+  (do ((i start (1+ i)))
+      ((>= i end))
+    (bytevector-u8-set! bv i
+			(proc (bytevector-u8-ref bv i)))))
+
+(define* (bytevector-u8-for-each proc bv #:optional (start 0) (end #f))
+  "Given a bytevector BV and a procedure PROC that takes an integer
+from 0 to 255, the procedure is applied over BV in left-to-right
+order.  If START and END are given, only a subsection of the
+bytevector is used as input.
+
+The return value is unspecified."
+  (unless end
+    (set! end (bytevector-length bv)))
+  (do ((i start (1+ i)))
+      ((>= i end))
+    (proc (bytevector-u8-ref bv i))))
+
+(define* (bytevector-u8-fold proc bv init #:optional (start 0) (end #f))
+  "Apply PROC to the elements of the bytevector BV to build a result.
+
+Each PROC call takes two parameters.  The 1st parameter is a number
+from 0 to 255 taken from the bytevector.  The 2nd parameter is the
+return from the previous call to PROC, or the given INIT for the first
+call to PROC.
+
+If START and END are given, only a subsection of the bytevector is
+used as input.
+
+If the bytevector is of length zero, just INIT is returned."
+  (unless end
+    (set! end (bytevector-length bv)))
+  (let ((result init))
+    (do ((i start (1+ i)))
+	((>= i end))
+      (set! result (proc (bytevector-u8-ref i result))))
+    result))
+
+(define* (bytevector-u8-map-to-list proc bv #:optional (start 0) (end #f))
+  "Apply PROC to the elements of the bytevector BV to build a result.
+PROC is a procedure that takes a number from 0 to 255 and returns
+a value, which need not be an integer.  A list of the return values
+is returned.
+
+If START and END are given, only a subsection of the bytevector is
+used as input.
+
+If the bytevector is of length zero, an empty list is returned."
+  (unless end
+    (set! end (bytevector-length bv)))
+  (let ((result '()))
+    (do ((i start (1+ i)))
+	((>= i end))
+      (set! result (append! result
+			    (list (proc (bytevector-u8-ref i result))))))
+    result))
+
 (define (bytevector-list-length lst)
-  "Return the number of bytes in a list of bytevectors."
+  "Return the total number of bytes in the contents of a list of
+bytevectors."
   ;; assert list of bytevectors
   (if (null-list? lst)
       0
@@ -20,7 +108,7 @@
 
 (define (bytevector-list-append lst)
   "Return a new bytevector whose contents are the appended contents of
-the input bytevectors."
+a list of bytevectors."
   ;; assert list of bytevector of length
   (if (null-list? lst)
       (make-bytevector 0)
@@ -66,4 +154,44 @@ COUNT is provided, treat it as the maximum number of bytes to read."
 			new-output)
 		  ;; Otherwise, we've reached COUNT bytes, so stop.
 		  new-output)))))))
-    
+
+(define (bytevector-u8->escaped-string-full
+	 bv
+	 start
+	 end
+	 c0-transformer
+	 g0-transformer
+	 del-transformer
+	 c1-transformer
+	 g1-transformer)
+  "Convert the bytevector BV to a string using five transfomer
+routines.
+
+C0-TRANSFORMER must be a function that takes an integer between
+0 and 31 and returns a string.
+
+G0-TRANSFORMER takes 32 to 126 and returns a string.
+
+DEL-TRANSFORMER takes the number 127 and returns a string.
+
+C1-TRANSFORMER takes 128 to 159.
+
+G1-TRANSFOMER takes 160 to 255."
+  (string-concatenate
+   (bytevector-u8-map-to-list
+    (lambda (x)
+      (cond
+       ((<= 0 x 31)
+	(c0-transformer x))
+       ((<= 32 x 126)
+	(g0-transformer x))
+       ((= 127)
+	(del-transformer x))
+       ((<= 128 x 159)
+	(c1-transformer x))
+       ((<= 160 x 255)
+	(g1-transformer))))
+    bv
+    start
+    end)))
+
