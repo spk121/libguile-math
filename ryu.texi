@@ -1,0 +1,71 @@
+\input texinfo
+@settitle RyuLib
+
+@copying
+Copyright @copyright{} 2017 Mike Gran
+@end copying
+
+@titlepage
+@title Ryulib
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@c Output the table of the contents at the beginning.
+@contents
+
+@ifnottex
+@node Top, C procedures, (dir), (dir)
+
+@top Ryulib
+
+This manual is for Ryulib.
+@end ifnottex
+
+@menu
+* C procedures::
+* Index::                       Complete index.
+
+@end menu
+
+@node C procedures, Index, Top, Top
+@chapter C procedures
+
+These are procedures provided in C that are more terse or more
+convenient that their Guile forms.
+
+@defun Macro assert condition
+Given @var{condition}, if @var{condition} evaluates to @code{#f},
+this raises an error with key @code{'misc-error} and a message
+constructed by displaying @var{condition}.
+
+If there is a variable in scope named @code{NDEBUG} which is
+not @code{#f}, this macro does nothing.
+@end defun
+
+Note that there is also a more expansive assertion macro in
+@code{(rnrs base)} but it throws the sometimes-more-awkward R6RS
+exception.
+
+@cindex index entry, another
+
+Here is a numbered list.
+
+@enumerate
+@item
+This is the first item.
+
+@item
+This is the second item.
+@end enumerate
+
+
+@node Index,  , C procedures, Top
+@unnumbered Index
+
+@printindex cp
+
+@bye
+
+

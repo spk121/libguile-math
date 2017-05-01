@@ -6,6 +6,21 @@
   #:export (clean
 	    trim))
 
+;; An xl-error is basically an enumerated type indicating
+;; an error.  It is one of
+;; #NULL!        1
+;; #DIV/0!       2
+;; #VALUE!       3
+;; #REF!         4
+;; #NAME?        5
+;; #NUM!         6
+;; #N/A          7
+;; #GETTING_DATA 8
+
+(define-class <xl-error>
+  (type #:init-value #f #:getter get-type #:setter set-type! #init-keyword #:type))
+
+(define-method ())
 (define char-set:clean
   (char-set-union (char-set #\space)
 		  char-set:graphic))
@@ -132,7 +147,6 @@ locales is unspecified."
   "Return #t if the expression X causes an exception."
   (not (false-if-exception x)))
 
-
 (define (isnumber x)
   "Return #t if x is any kind of number."
   (number? x))
@@ -201,4 +215,31 @@ contain numbers, return 0."
 (define (mod numerator denominator)
   "Compute the remainder of a division between two supplied numbers."
   (modulo numerator denominator))
+
+;; ceiling exists
+
+(define* (ceiling-precise number #:optional (significance 1))
+  "Rounds a number up to the nearest multiple of SIGNIFICANCE.
+Note that the sign of SIGNIFICANCE is ignored."
+  ;; FIXME
+  (if (zero? significance)
+      0
+      ;; else
+      (* (abs significance)
+	 (ceiling-quotient number (abs significance)))))
+
+(define* (floor-precise number #:optional (significance 1))
+  "Rounds a number down to the nearest multiple of SIGNIFICANCE.
+Note that the sign of SIGNIFICANCE is ignored."
+  ;; FIXME
+  (if (zero? significance)
+      0
+      ;; else
+      (* (abs significance)
+	 (floor-quotient number (abs significance)))))
+
+(define (int num)
+  "Round down to the nearest integer."
+  (inexact->exact (floor num)))
+
 

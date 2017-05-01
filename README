@@ -3,8 +3,11 @@ MLG's Guile Library
 This is a collection of fairly low-level Scheme functions focused on
 the boring grunge work of application programming.
 
-One might think of it as like the GTK's Glib project.
+Most of these functions will be already present in core Guile in
+more verbose forms.  The primary goals of this library
 
-In fact, some of the routines are intentionally similar to Glib.
+1. Provide functionality under names and patterns which which
+   a C or C++ programmer might be more familiar.
 
-
+2. Provide functionality under a terser syntax than that provided by
+   core guile.
