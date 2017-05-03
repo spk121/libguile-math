@@ -15,7 +15,9 @@
 	    ascii->trigraph
 
 	    ;; 6.5.3.1 Prefix increment and decrement operators
+	    c++
 	    ++
+	    c--
 	    --
 
 	    ;; 6.5.3.3 Unary arithmetic operators
@@ -38,25 +40,28 @@
 	    >>
 	    
 	    ;; 6.5.9 Equality operators
+	    c==
 	    ==
+	    c!=
 	    !=
 	    
 	    ;; 6.5.10 Bitwise AND operator
-	    &
+	    bitand
 
 	    ;; 6.5.11 Bitwise exclusive OR operator
-	    ^
+	    bitxor
 
 	    ;; 6.5.12 Bitwise inclusive OR operator
-	    \|
+	    bitor
 
 	    ;; 6.5.13 Logical AND operator
-	    &&
+	    c-logical-and
 
 	    ;; 6.5.14 Logical OR operator
-	    \|\|
+	    c-logical-or
 
 	    ;; 6.5.15 Contitional operator
+	    c?:
 	    ?:
 
 	    ;; 6.5.16 Assignment operators
@@ -77,10 +82,121 @@
 	    ;; 6.10.8 Predefined macro names
 	    __FILE__
 	    __LINE__
-	    
-	    ;; <assert.h>
-	    assert
 
+	    ;; 7.2.1.1 The assert macro
+	    cassert
+
+	    ;; 7.3.5.1 The cacos functions
+	    cacos
+
+	    ;; 7.3.5.2 The casin function
+	    casin
+
+	    ;; 7.3.5.3 The catan function
+	    catan
+
+	    ;; 7.3.5.4 The ccos function
+	    ccos
+
+	    ;; 7.3.5.5 The csin functions
+	    csin
+	    
+	    ;; 7.4 Character handling
+	    locale-uint8->char
+
+	    ;; 7.4.1.1 The isalnum function
+	    cisalnum
+	    isalnum?
+
+	    ;; 7.4.1.2 The isalpha function
+	    cisalpha
+	    isalpha?
+
+	    ;; 7.4.1.3 The isblank function
+	    cisblank
+	    isblank?
+
+	    ;; 7.4.1.4 The iscntrl function
+	    ciscntrl
+	    iscntrl?
+
+	    ;; 7.4.1.5 The isdigit function
+	    cisdigit
+	    isdigit?
+
+	    ;; 7.4.1.6 The isgraph function
+	    cisgraph
+	    isgraph?
+
+	    ;; 7.4.1.7 The islower function
+	    cislower
+	    islower?
+
+	    ;; 7.4.1.8 The isprint function
+	    cisprint
+	    isprint?
+
+	    ;; 7.4.1.9 The ispunct function
+	    cispunct
+	    ispunct?
+
+	    ;; 7.4.1.10 The isspace function
+	    cisspace
+	    isspace?
+
+	    ;; 7.4.1.11 The isupper function
+	    cissupper
+	    isupper?
+
+	    ;; 7.4.1.12 The isxdigit function
+	    cisxdigit
+	    isxdigit?
+
+	    ;; 7.4.2.1 The tolower function
+	    ctolower
+	    tolower
+
+	    ;; 7.4.2.2 The toupper function
+	    ctoupper
+	    toupper
+
+	    ;; 7.8.2.1 The imaxabs function
+	    imaxabs
+
+	    ;; 7.8.2.2 The imaxdiv function
+	    imaxdiv
+
+	    ;; 7.8.2.3 The strtoimax and strtoumax functions
+	    strtoimax
+	    strtoimax-idx
+	    
+	    ;; 7.10 Sizes of integer types <limits.h>
+	    INT_MIN
+	    INT_MAX
+	    UINT_MAX
+	    LONG_MIN
+	    LONG_MAX
+	    ULONG_MAX
+
+	    ;; 7.11.2.1 The localeconv function
+	    localeconv
+
+	    ;; 7.12.3.2 The isfinite macro
+	    cisfinite
+	    isfinite?
+
+	    ;; 7.12.3.3 The isinf macro
+	    cisinf
+	    isinf?
+
+	    ;; 7.12.3.4 The isnan macro
+	    cisnan
+	    isnan?
+	    
+	    ;; 7.12.3.6 The signbit macro
+	    csignbit
+	    signbit
+	    
 	    ;; <complex.h>
 	    CMPLX
 	    creal
@@ -91,42 +207,9 @@
 	    clog
 	    cpow
 	    csqrt
-	    csin ccos ctan
+	    csin ctan
 	    csinh ccosh ctanh
-	    casin cacos catan
 	    casinh cacosh catanh
-
-	    ;; <ctype.h>
-	    isalnum
-	    isalpha
-	    islower
-	    isupper
-	    isdigit
-	    isxdigit
-	    iscntrl
-	    isgraph
-	    isspace
-	    isblank
-	    isprint
-	    ispunct
-	    tolower
-	    toupper
-
-	    ;; <errno.h>
-	    ;; <fenv.h>
-	    ;; <float.h>
-	    ;; <inttypes.h>
-	    
-	    ;; <limits.h>
-	    INT_MIN
-	    INT_MAX
-	    UINT_MAX
-	    LONG_MIN
-	    LONG_MAX
-	    ULONG_MAX
-
-	    ;; <locale.h>
-	    localeconv
 
 	    ;; <math.h>
 	    signbit
@@ -242,9 +325,12 @@
   "Return the number of command-line arguments for the current program."
   (length (command-line)))
 
-(define (argv n)
-  "Return the nth command-line argument for the current program."
-  (list-ref (command-line) n))
+(define* (argv #:optional (n #f))
+  "Return the command-line arguments for the current program. If
+N is specified, return the Nth command line argument."
+  (if n
+      (list-ref (command-line) n)
+      (command-line)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 5.2.1.1 Trigraph sequences
@@ -286,17 +372,7 @@ replaced with the corresponding single characters."
     (let loop ((input-index 0)
 	       (output-index 0)
 	       (state 0))
-      (if (>= input-index (string-length input-str))
-	  ;; We've reached the end.  Return the output.
-	  (begin
-	    ;; There may still be unprocessed question marks that need
-	    ;; to be appended.
-	    (if (>= state 1)
-		(string-set! output-str output-index #\?))
-	    (if (= state 2)
-		(string-set! output-str (1+ output-index) #\?))
-	    (substring output-str 0 (+ output-index state)))
-	  ;; else, let's process the next character
+      (if (< input-index (string-length input-str))
 	  (let ((c (string-ref input-str input-index)))
 	    (if (eqv? c #\?)
 		(cond
@@ -343,7 +419,16 @@ replaced with the corresponding single characters."
 		  (string-set! output-str output-index c)
 		  (loop (1+ input-index)
 			(1+ output-index)
-			0)))))))))
+			0)))))
+	  ;; We've reached the end.  Return the output.
+	  (begin
+	    ;; There may still be unprocessed question marks that need
+	    ;; to be appended.
+	    (if (>= state 1)
+		(string-set! output-str output-index #\?))
+	    (if (= state 2)
+		(string-set! output-str (1+ output-index) #\?))
+	    (substring output-str 0 (+ output-index state)))))))
 
 
 (define (ascii->trigraph input-str)
@@ -423,10 +508,20 @@ required single characters replaced with trigraph sequences."
 ;; ++ -  The increment operator in C can be implemented as
 ;; a macro in Guile.  But, in Scheme, too much modification of
 ;; variables is discouraged.
+(define-syntax c++
+  (syntax-rules ()
+    ((_ x)
+     (set! x (c+ x 1)))))
+
 (define-syntax ++
   (syntax-rules ()
     ((_ x)
      (set! x (1+ x)))))
+
+(define-syntax c--
+  (syntax-rules ()
+    ((_ x)
+     (set! x (c- x 1)))))
 
 (define-syntax --
   (syntax-rules ()
@@ -494,6 +589,11 @@ required single characters replaced with trigraph sequences."
 ;; variable.  Ther is no close analog to that concept in Guile.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 6.5.4 Cast operators
+
+;; No close analog in Guile.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.5 Multiplicative operators
 
 ;; In both C and Guile, when the operands of binary operators have
@@ -504,48 +604,70 @@ required single characters replaced with trigraph sequences."
 ;; Guile, however, includes the rarely-useful rational types is its
 ;; numerical tower.
 
-(define (c* a b)
-  "Multiply two numbers, whilst promoting any non-integer rational
-operands to real numbers."
-  (cond
-   ((and (exact-integer? a) (exact-integer? b))
-    (* a b))
-   (else
-    (* (exact->inexact a) (exact->inexact b)))))
+;; Also, C allows math on pointers
 
-(define (c/ a b)
-  "Divide two numbers, whilst promoting any non-integer rational
-operands to real numbers."
-  (cond
-   ((and (exact-integer? a) (exact-integer? b))
-    (quotient a b))
-   (else
-    (/ (exact->inexact a) (exact->inexact b)))))
+(define (c* _a _b)
+  "Multiply two values, either numbers or pointers, whilst promoting
+any non-integer rational operands to real numbers."
+  (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	(b (if (pointer? _b) (pointer-address _b) _b)))
+    (cond
+     ((and (exact-integer? a) (exact-integer? b))
+      (* a b))
+     (else
+      (* (exact->inexact a) (exact->inexact b))))))
+
+(define (c/ _a _b)
+  "Divide two values, either numbers or pointers, whilst promoting
+any non-integer rational operands to real numbers."
+  (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	(b (if (pointer? _b) (pointer-address _b) _b)))
+    (cond
+     ((and (exact-integer? a) (exact-integer? b))
+      (quotient a b))
+     (else
+      (/ (exact->inexact a) (exact->inexact b))))))
    
-(define (c% a b)
-  "Compute the modulo of two integers."
-  (modulo a b))
+(define (c% _a _b)
+  "Compute the modulo of two values, either numbers or pointers."
+  (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	(b (if (pointer? _b) (pointer-address _b) _b)))
+    (modulo a b)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.6 Additive operators
 
-(define (c+ a b)
-  "Add two numbers, whilst promoting any non-integer rational operands
-to real numbers."
+(define (c+ _a _b)
+  "Add two values, either numbers or pointers, whilst promoting any
+non-integer rational operands to real numbers. If _a is a pointer
+and _b is an integer, it returns a pointer."
   (cond
-   ((and (exact-integer? a) (exact-integer? b))
-    (+ a b))
+   ((and (pointer? _a) (exact-integer? _b))
+    (make-pointer (+ (pointer-address _a) _b)))
    (else
-    (+ (exact->inexact a) (exact->inexact b)))))
-
-(define (c- a b)
-  "Subtract two numbers, whilst promoting any non-integer rational operands
-to real numbers."
+    (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	  (b (if (pointer? _b) (pointer-address _b) _b)))
+      (cond
+       ((and (exact-integer? a) (exact-integer? b))
+	(+ a b))
+       (else
+	(+ (exact->inexact a) (exact->inexact b))))))))
+  
+(define (c- _a _b)
+  "Subtract two values, either numbers or pointers, whilst promoting
+any non-integer rational operands to real numbers. If _a is a pointer
+and _b is an integer, the return value is a pointer."
   (cond
-   ((and (exact-integer? a) (exact-integer? b))
-    (- a b))
+   ((and (pointer? _a) (exact-integer? _b))
+    (make-pointer (- (pointer-address _a) _b)))
    (else
-    (- (exact->inexact a) (exact->inexact b)))))
+    (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	  (b (if (pointer? _b) (pointer-address _b) _b)))
+      (cond
+       ((and (exact-integer? a) (exact-integer? b))
+	(- a b))
+       (else
+	(- (exact->inexact a) (exact->inexact b))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.7 Bitwise shift operators
@@ -578,19 +700,42 @@ to real numbers."
 
 ;; Guile has many type of equality.
 
-(define (== a b)
-  "Return #t if A and B equal (in a scheme equal? sense)."
-  (equal? a b))
+;; C equality returns 0 or 1, not #t or #f
+(define (c== _a _b)
+  "Given two values, either numbers or pointers, return 1 if A and B
+are numerically equal, or zero otherwise, whilst promoting any
+non-integer rational operands to real numbers."
+  (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	(b (if (pointer? _b) (pointer-address _b) _b)))
+    (cond
+     ((and (exact-integer? a) (exact-integer? b))
+      (if (equal? a b) 1 0))
+     (else
+      (if (equal? (exact->inexact a) (exact->inexact b)) 1 0)))))
 
-(define (!= a b)
-  "Return #t if the operands are not equal (in a scheme equal? sense)."
-  (not (equal? a b)))
+(define (== _a _b)
+  (equal? _a _b))
+
+(define (c!= _a _b)
+  "Given two values, either numbers or pointers, return zero if A and B
+are numerically equal, or one otherwise, whilst promoting any
+non-integer rational operands to real numbers."
+  (let ((a (if (pointer? _a) (pointer-address _a) _a))
+	(b (if (pointer? _b) (pointer-address _b) _b)))
+    (cond
+     ((and (exact-integer? a) (exact-integer? b))
+      (if (equal? a b) 0 1))
+     (else
+      (if (equal? (exact->inexact a) (exact->inexact b)) 0 1)))))
+
+(define (!= _a _b)
+  (not (equal? _a _b)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.10 Bitwise AND operator
 
 ;; Bitwise AND operator - called LOGAND in core Guile.
-(define (bitand a b)
+(define (cbitand a b)
   "Compute the bitwise AND of two integers."
   (logand a b))
 
@@ -598,7 +743,7 @@ to real numbers."
 ;; 6.5.11 Bitwise exclusive OR operator
 
 ;; Bitwise exclusive OR operator - called LOGXOR in core Guile.
-(define (^ a b)
+(define (cbitxor a b)
   "Compute the bitwise exclusive OR of two operands."
   (logxor a b))
 
@@ -608,7 +753,7 @@ to real numbers."
 ;; Bitwise inclusive OR operator - called LOGIOR in core Guile. But
 ;; the vertical bar has syntactical meaning in Guile, so here it is
 ;; slash-bar.
-(define (\| a b)
+(define (cbitor a b)
   "Compute the bitwise OR of two integers"
   (logior a b))
 
@@ -619,25 +764,26 @@ to real numbers."
 ;; uses non-zero and zero integers for true and false, whilst Guile
 ;; has a boolean type.
 
-;; Logical AND operator - called AND in core Guile. But in C,
-;; the exact integer zero is false.  Here we create a hybrid
-;; between C and Guile where both #f and 0 are false.
-(define (&& a b)
-  "Compute the logical AND of two operands, considering both #f and
-the exact integer zero to be false."
-  (and (if (and (exact-integer? a) (zero? a)) #f a)
-       (if (and (exact-integer? b) (zero? b)) #f b)))
+(define (c-logical-and a b)
+  "Compute the logical AND of two scalar operands, returning 1 if operands
+compare unequal to zero, and zero otherwise."
+  (if (and (not (zero? a)) (not (zero? b)))
+      1
+      0))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.14 Logical OR operator
 
 ;; Logical OR operator - called 'or' in core Guile. But in C, the
 ;; exact integer zero indicates false.  Here we create a hybrid
 ;; between C and Guile where both #f and 0 are false.
-(define (\|\| a b)
-  "Compute the logical OR of two operands, considering both #f and the
-exact integer zero to be false."
-  (or (if (and (exact-integer? a) (zero? a)) #f a)
-      (if (and (exact-integer? b) (zero? b)) #f b)))
+(define (c-logical-or a b)
+  "Compute the logical or of two scalar operands, returning 1 if either operand
+compares unequal to zero, and zero otherwise."
+  (if (or (not (zero? a)) (not (zero? b)))
+      1
+      0))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.15 Conditional operator
@@ -647,8 +793,17 @@ exact integer zero to be false."
 ;; operand.  It is analgous to the core Guile's 'if; procedure.  Here
 ;; we create a hybrid between C and Guile where both #f and 0 are
 ;; false.
+(define (c?: test on-success on-failure)
+  "If test is unequal to zero, return on-success.
+Else return on-failure."
+  (if (not (zero? test))
+      on-success
+      on-failure))
+
 (define (?: test on-success on-failure)
-  (if (and (not test) (not (eqv? 0 test)))
+  "If test is unequal to #f, return on-success.
+Else return on-failure."
+  (if (not test)
       on-success
       on-failure))
 
@@ -668,12 +823,7 @@ exact integer zero to be false."
 (define-syntax +=
   (syntax-rules ()
     ((_ x a)
-     (set! x
-       (cond
-	((and (exact-integer? x) (exact-integer? a))
-	 (+ x a))
-	(else
-	 (+ (exact->inexact x) (exact->inexact a))))))))
+     (set! x (c+ x a)))))
 
 (define-syntax -=
   (syntax-rules ()
@@ -698,17 +848,17 @@ exact integer zero to be false."
 (define-syntax &= 
   (syntax-rules ()
     ((_ x a)
-     (set! x (logand x a)))))
+     (set! x (bitand x a)))))
 
 (define-syntax \|= 
   (syntax-rules ()
     ((_ x a)
-     (set! x (\| x a)))))
+     (set! x (bitor x a)))))
 
 (define-syntax ^= 
   (syntax-rules ()
     ((_ x a)
-     (set! x (^ x a)))))
+     (set! x (bitxor x a)))))
 
 (define-syntax <<=
   (syntax-rules ()
@@ -930,7 +1080,7 @@ exact integer zero to be false."
    (syntax-rules ()
      ((_)
       (or (assv-ref (current-source-location) 'filename)
-	  "(unknown line)"))))
+	  "(unknown file)"))))
 
 (define-syntax __LINE__
    (syntax-rules ()
@@ -942,149 +1092,371 @@ exact integer zero to be false."
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; From <assert.h>
+;; 7.2.1.1 The assert macro
 
-;; This macro, used like (assert test), will throw a 'misc-error with
-;; a message giving the test that failed and where it was located in
-;; the source.  If there is a defined variable NDEBUG, the test will
-;; not be run.
-(define-syntax assert
-   (syntax-rules ()
-     ((_ expression)
-      (or (and (defined? 'NDEBUG) NDEBUG)
-	  expression
-          (error 
-	   (format #f "~a: ~a:~a: Assertion `~s' failed."
-		   (car (program-arguments))
-		   (or (current-filename) "(unknown file)")
-		   (or (assv-ref (current-source-location) 'line)
-		       "(unknown line)")
-		   'expression))))))
+;; If expression compares equal to zero, the assert macro writes
+;; information about the call that failed, and then calls abort.
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; From <complex.h>
+;; 7.3.5.1 The cacos functions
 
-;; CMPLXF, CMPLX, CMPLXL are macros that construct complex
-;; numbers from real parts.  Core Guile's MAKE-RECTANGULAR
-;; does the same.
-(define (CMPLX real imag)
-  "Create a complex number from real and imaginary parts."
-  (make-rectangular real imag))
+(define (cacos x) (acos x))
 
-;; CREAL, CREALF, and CREALL find the real part of a complex number.
-;; Core Guile's REAL-PART is analagous.
-(define (creal z)
-  "Computes the real part of a complex number."
-  (real-part z))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.5.2 The casin functions
 
-;; CIMAGF, CIMAG, and CIMAGL find the imaginary part of a complex number.
-;; Core Guile's imag-part is analagous.
+(define (casin x) (asin x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.5.3 The catan function
+
+(define (catan x) (atan x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.5.4 The ccos function
+
+(define (ccos x) (cos x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.5.5 The csin functions
+
+(define (csin x) (sin x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.5.6 The ctan function
+
+(define (ctan x) (tan x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.6.1 The cacosh function
+
+(define (cacosh x) (acosh x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.6.2 The casinh functions
+
+(define (casinh x) (asinh x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.6.3 The catanh functions
+
+(define (catanh x) (atanh x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.6.4 The ccosh functions
+
+(define (ccosh x) (cosh x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.6.5 The csinh functions
+
+(define (csinh x) (sinh x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.6.6 The ctanh function
+
+(define (ctanh x) (tanh x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.7.1 The cexp functions
+
+(define (cexp x) (exp x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.7.2 The clog functions
+
+(define (clog x) (log x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.8.1 The cabs functions
+
+(define (cabs x) (magnitude x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.8.2 The cpow functions
+
+(define (cpow x y) (expt x y))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.8.3 csqrt functions
+
+(define (csqrt x) (sqrt x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.9.1 The carg functions
+(define (carg z) (angle z))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.9.2 The cimag functions
+
 (define (cimag z)
   "Computes the imaginary part of a complex number."
   (imag-part z))
 
-;; CABSF, CABS, and CABSL find the complex absolute value of a complex
-;; number.  Core Guile's MAGNITUDE is analaous.
-(define (cabs z)
-  "Computes the complex absolute value of a complex number."
-  (magnitude z))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.9.3 The CMPLX macros
 
-;; CARGF, CARG, and CARGL compute the argument (also know as the phase
-;; angle) of a complex number.  Core Guile's ANGLE is analaous.
-(define (carg z)
-  "Compute the argument (aka phase angle) of z."
-  (angle z))
+(define-syntax CMPLX
+  (syntax-rules ()
+    ((_ x y)
+     (make-rectangular x y))))
 
-;; CONJF, CONJ, and CONJL compute the complex conjugate.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.9.4 The conj function
+
 (define (conj z)
   "Computes the complex conjugate of z."
   (- (real-part z) (imag-part z)))
 
-(define (cproj x) x)
-(define (cexp x) (exp x))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.9.5 The cproj function
 
-(define (clog x) (log x))
-(define (cpow x y) (expt x y))
-(define (csqrt x) (sqrt x))
+(define (cproj z)
+  "Computes the projection fo z onto the Riemann sphere.
+That is, returns z, unless z is infinite."
+  (cond
+   ((or (inf? (real-part z)) (inf? (imag-part z)))
+    (make-rectangular +inf.0 (imag-part z)))
+   (else
+    z)))
 
-(define (csin x) (sin x))
-(define (ccos x) (cos x))
-(define (ctan x) (tan x))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.3.9.6 The creal function
 
-(define (casin x) (asin x))
-(define (cacos x) (acos x))
-(define (catan x) (atan x))
+(define (creal z)
+  "Computes the real part of a complex number."
+  (real-part z))
 
-(define (csinh x) (sinh x))
-(define (ccosh x) (cosh x))
-(define (ctanh x) (tanh x))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4 8-bit Character handling
 
-(define (casinh x) (asinh x))
-(define (cacosh x) (acosh x))
-(define (catanh x) (atanh x))
-;; cacos, catan, csinh, ccosh, ctanh, casinh, cacosh, catanh
-;; can all map to the core Guile ACOS, etc.
+;; The functions is ctype are for either 8-bit characters or the EOF
+;; value, and they are affected by the current locale.
+
+(define-inlinable (%cchar->char x)
+  (false-if-exception
+   (string-ref (bytevector->string (make-bytevector 1 x)
+				   (locale-encoding %global-locale)
+				   'error)
+	       0)))
+
+(define-inlinable (%char->cchar x)
+  (let ((bv (false-if-exception
+	     (string->bytevector (string x)
+				 (locale-encoding %global-locale)
+				 'error))))
+    (if (and bv (= (bytevector-length bv) 1))
+	(bytevector-u8-ref bv 0)
+	#f)))
+
+(define (locale-uint8->char x)
+  "Given an 8-bit integer, return a character.  Make
+the conversion using the current locale. Return #f
+on failure."
+  (if (and (exact-integer? x)
+	   (<= 0 x)
+	   (<= x UINT8_MAX))
+      (%cchar->char x)
+      #f))
+
+(define-inlinable (%cchar x)
+  (cond
+   ((char? x)
+    x)
+   ((and (exact-integer? x) (<= 0 x) (<= x UINT8_MAX))
+    (%cchar->char x))
+   (else
+    #f)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; From <ctype.h>
+;; 7.4.1.1 The isalnum function
+(define (cisalnum _c)
+  "Return 1 if the 8-bit integer C maps to an alphanumeric character
+in the current locale, else 0"
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:letter+digit c))
+	1 0)))
 
-(define (isalnum c)
-  "Return #t if character C is alphabetic or numeric."
+(define (isalnum? c)
+  "Return #t if the character C is alphanumeric."
   (char-set-contains? char-set:letter+digit c))
 
-(define (isalpha c)
-  "Return #t if character C is a letter."
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.2 The isalpha function
+
+(define (cisalpha _c)
+  "Return 1 if the 8-bit integer C maps to an alphabetic character
+in the current locale, else 0"
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:letter c))
+	1 0)))
+
+(define (isalpha? c)
+  "Return #t if the character C is alphabetic."
   (char-set-contains? char-set:letter c))
 
-(define (iscntrl c)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.3 The isblank function
+
+(define (cisblank _c)
+  "Return 1 if the 8-bit integer C maps to an blank character
+in the current locale, else 0"
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:blank c))
+	1 0)))
+
+(define (isblank? c)
+  "Return #t if the character C is alphabetic."
+  (char-set-contains? char-set:blank c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.4 The iscntrl function
+
+(define (ciscntrl _c)
+  "Return 1 if the 8-bit integer maps C is a control character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:iso-control c))
+	1 0)))
+
+(define (iscntrl? c)
   "Return true if C an ISO C0 or C1 control character"
   (char-set-contains? char-set:iso-control c))
 
-(define (isdigit c)
-  "Return #t if C is a digit."
-  (char-set-contains? char-set:digit c))  
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.5 The isdigit function
+(define (cisdigit _c)
+  "Return 1 if the 8-bit integer maps C is a decimal digit character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:digit c))
+	1 0)))
 
-(define (isgraph c)
-  "Return #t if C is a graphic character."
+(define (isdigit? c)
+  "Return #t if the character C is a digit, else #f"
+  (char-set-contains? char-set:digit c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.6 The isgraph function
+
+(define (cisgraph _c)
+  "Return 1 if the 8-bit integer maps C is a printing character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:graphic c))
+	1 0)))
+
+(define (isgraph? c)
+  "Return #t if the character C is a printing character, else #f"
   (char-set-contains? char-set:graphic c))
 
-(define (islower c)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.7 The islower function
+
+(define (cislower _c)
+  "Return 1 if the 8-bit integer C maps to a small character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:lower-case c))
+	1 0)))
+
+(define (islower? c)
   "Return #t if C a lowercase letter."
   (char-set-contains? char-set:lower-case c))
 
-(define (isprint c)
-  "Return #t if C is a printing character."
-   (char-set-contains? char-set:printing c))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.7 The isprint function
 
-(define (ispunct c)
-  "Return #t if C is a graphical character that is not alphanumeric.
-Note that this includes both punctuation and symbols."
-  (and (char-set-contains? char-set:graphic c)
-       (not (char-set-contains? char-set:letter+digit c))))
+(define (cisprint  _c)
+  "Return 1 if the 8-bit integer C maps to a printing character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:printing c))
+	1 0)))
 
-(define (isspace c)
+(define (isprint? c)
+  "Return #t if C a printing character."
+  (char-set-contains? char-set:printing c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.8 The ispunct function
+
+(define (cispunct  _c)
+  "Return 1 if the 8-bit integer C maps to a punctuation character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:punctuation c))
+	1 0)))
+
+(define (ispunct? c)
+  "Return #t if C a punctuation character."
+  (char-set-contains? char-set:punctuation c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.10 The isspace function
+
+(define (cisspace  _c)
+  "Return 1 if the 8-bit integer C maps to a whitespace character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:whitespace c))
+	1 0)))
+
+(define (isspace? c)
   "Return #t if C is a whitespace character."
    (char-set-contains? char-set:whitespace c))
 
-(define (isupper c)
-  "Return #t if C is an uppercase letter."
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.11 The isupper function
+
+(define (cisupper _c)
+  "Return 1 if the 8-bit integer C maps to an uppercase character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:upper-case c))
+	1 0)))
+
+(define (isupper? c)
+  "Return #t if C is an uppercase character."
    (char-set-contains? char-set:upper-case c))
 
-(define (isxdigit c)
-  "Return #t if C is hexadecimal digit."
-  (char-set-contains? char-set:hex-digit c))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.1.12 The isxdigit function
 
-(define (tolower c)
-  "Return the lowercase character version of C"
-  (char-downcase c))
+(define (cisxdigit _c)
+  "Return 1 if the 8-bit integer C maps to a hexadecimal-digit
+character, else 0."
+  (let ((c (%cchar _c)))
+    (if (and c (char-set-contains? char-set:hex-digit c))
+	1 0)))
 
-(define (toupper c)
-  "Return the uppercase character version of C"
-  (char-upcase c))
+(define (isxdigit? c)
+  "Return #t if C is a whitespace character."
+   (char-set-contains? char-set:hex-digit c))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <errno.h>
+;; 7.4.2.1 The tolower function
+
+(define (ctolower _c)
+  "Return the 8-bit integer representation of the lower-case letter
+to which the 8-bit integer maps."
+  (let* ((c (%cchar _c))
+	 (L (and c (char-downcase c))))
+    (%char->cchar L)))
+
+(define (tolower c)
+  (char-downcase c))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.4.2.2 The toupper function
+
+(define (ctoupper _c)
+  "Return the 8-bit integer representation of the upper-case letter
+to which the 8-bit integer maps."
+  (let* ((c (%cchar _c))
+	 (L (and c (char-downcase c))))
+    (%char->cchar L)))
+
+(define (toupper c)
+  (char-downcase c))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.5 Errors <errno.h>
 
 ;; ERRNO - There isn't really a good way to directly access
 ;; the underlying errno.
@@ -1093,26 +1465,73 @@ Note that this includes both punctuation and symbols."
 ;; exist in core Guile.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <fenv.h>
+;; 7.6 Floating-point environment <fenv.h>
 
 ;; Almost everyting in <fenv.h> has no analog in core Guile.
 ;; Access to the details of floating point numbers is hidden.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <float.h>
+;; 7.7 Characteristics of floating types <float.h>
 
 ;; Details about the floating point numbers in core Guile is
 ;; supposed to be hidden.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <iso646.h>
+;; 7.8 Format conversion of integger types <inttypes.h>
+
+;; Some of these format specifiers might be useful for
+;; a fully specified printf command
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.8.2.1 The imaxabs function
+
+(define (imaxabs j)
+  "Compute the absolute value of integer j."
+  (abs j))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.8.2.2 The imaxdiv function
+
+(define (imaxdiv numer denom)
+  "Return a pair containing the numerator and the denominator
+of the integer division of the variables."
+  (let ((ratio (/ numer denom)))
+    (cons (numerator ratio) (denominator ratio))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.8.2.3 The strtoimax and strtoumax functions
+
+(define* (strtoimax-idx _str #:optional (base 0))
+  "Convert STR to an integer, assuming BASE. BASE is either 0, or 2 to
+36, with a default value of 0.
+
+If BASE is 0, the number will assumed to be base-16 if it starts with
+0x or 0X, base 8 if it starts with 0, or base 10 otherwise.
+
+Will return a a pair.  The car is the integer value, or zero if no
+conversion can be returned.  The cdr is the number of characters
+processed."
+  (strtol-idx _str base))
+
+(define* (strtoimax _str #:optional (base 0))
+  "Convert STR to an integer, assuming BASE. BASE is either 0, or 2 to
+36, with a default value of 0.
+
+If BASE is 0, the number will assumed to be base-16 if it starts with
+0x or 0X, base 8 if it starts with 0, or base 10 otherwise.
+
+Will return an integer value, or zero if no conversion can be
+returned."
+  (car (strtol-idx _str base)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.9 Alternative spellings <iso646.h>
 
 ;; This syntactic sugar is rarely used.
 ;; 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <limits.h>
+;; 7.10 Sizes of integer types <limits.h>
 
 ;; Details about the limits of integers isn't often relevant
 ;; in Guile.
@@ -1124,13 +1543,20 @@ Note that this includes both punctuation and symbols."
 (define LONG_MAX (signed-limit (sizeof long)))
 (define ULONG_MAX (unsigned-limit (sizeof unsigned-long)))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <locale.h>
+;; 7.11 Localization <locale.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.11.1.1 The setlocale function
 
 ;; SETLOCALE - there is a good SETLOCALE in core Guile
 
 ;; LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY, LC_NUMERIC,
 ;; and LC_TIME are all defined in core Guile.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.11.2.1 The localeconv function
 
 ;; LOCALECONV - in C, this returns a pointer to a structure
 ;; with locale information.  Of course, pointers to structures
@@ -1178,15 +1604,74 @@ rules for the current locale."
      (cons 'int-p-sign-posn (locale-monetary-positive-sign loc))
      (cons 'int-n-sign-posn (locale-monetary-negative-sign loc)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.12.3.2 The isfinite macro
+
+(define (cisfinite x)
+  "Return 1 if X is finite, else 0."
+  (if (finite? x) 0 1))
+
+(define (isfinite? x)
+  "Return #t if X is finite, else #f."
+  (finite? x))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <math.h>
+;; 7.12.3.3 The isinf macro
+
+(define (cisinf x)
+  "Return 1 if X is infinite, else 0."
+  (if (inf? x) 1 0))
+
+(define (isinf? x)
+  "Return #t if X is infinite, else #f."
+  (inf? x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.12.3.4 The isnan macro
+
+(define (cisinf x)
+  "Return 1 if X is +nan.0, else 0."
+  (if (nan? x) 1 0))
+
+(define (isnan? x)
+  "Return #t if X is +nan.0, else #f."
+  (nan? x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.12.3.5 The isnormal macro
+
+(define (cisnormal x)
+  "Return 1 is X is neither zero, subnormal, infinite, or NaN.
+Else 0."
+  (if (and (not (zero? x))
+	   (not (inf? x))
+	   (not (nan? x)))
+      1
+      0))
+
+(define (isnormal? x)
+  "Return #t if the number X is neither zero, subnormal, infinite,
+or NaN.  Else #f"
+  (and (not (zero? x))
+       (not (inf? x))
+       (not (nan? x))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.12.3.6 The signbit macro
+
+(define (csignbit x)
+  "Return 1 if x is negative. Else 0."
+  (if (< x 0) 1 0))
 
 (define (signbit x)
   "Return #t if x is negative."
   (if (< x 0)
       #t
       #f))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <math.h>
+
 
 (define (exp2 x)
   "Compute the base-2 exponential of x."
@@ -2207,27 +2692,27 @@ describe by the integer DESC.  To get a value for DESC, use the
 WCTYPE procedure."
   (case desc
     ((1)
-     (isalnum ch))
+     (isalnum? ch))
     ((2)
-     (isalpha ch))
+     (isalpha? ch))
     ((3)
-     (isblank ch))
+     (isblank? ch))
     ((4)
-     (iscntrl ch))
+     (iscntrl? ch))
     ((5)
-     (isdigit ch))
+     (isdigit? ch))
     ((6)
-     (isgraph ch))
+     (isgraph? ch))
     ((7)
-     (islower ch))
+     (islower? ch))
     ((8)
-     (isprint ch))
+     (isprint? ch))
     ((9)
-     (isspace ch))
+     (isspace? ch))
     ((10)
-     (isupper ch))
+     (isupper? ch))
     ((11)
-     (isxdigit ch))))
+     (isxdigit? ch))))
 
 (define (wctype str)
   "Returns an integer that identifies
