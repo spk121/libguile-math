@@ -4,7 +4,9 @@
   #:use-module (ice-9 rdelim)
   ;; #:use-module (gano CBuffer)
   #:use-module (ryu core)
+  #:use-module (mlg io)
   #:use-module (mlg utils)
+  #:use-module (mlg re)
   #:export ())
 
 (define-syntax set&get
@@ -82,6 +84,27 @@ string"
 (define old-filename #f)
 (define isglobal #f)
 
+;; If set, signals set flags.
+(define mutex 0)
+;; If set, sighup received when mutex set.
+(define sighup #f)
+;; If set, sigint received when mutex set.
+(define sigint #f)
+;; If set, signal handlers are enabled.
+(define sigactive #f)
+
+(define (SPL1)
+  "Disable some interrupts"
+  (set! mutex (1+ mutex)))
+(define (SPL0)
+  "Enable all interrupts and chack signal flags."
+  (set! mutex (1- mutex))
+  (when (= 0 mutex)
+    (when sighup
+      (handle-hup SIGHUP))
+    (when sigint
+      (handle-int SIGINT))))
+
 (define home "") 			; home directory
 
 (define cbuf #f)
@@ -90,16 +113,18 @@ string"
   (set! errmsg msg))
 
 (define (main args)
-  (set! home (get-home-dir))
   (let* ((option-spec '((prompt (single-char #\p) (value #t) (predicate string?))
 			(scripted (single-char #\s) (value #f))))
 	 (options (getopt-long args option-spec))
 	 (argv (option-ref options '() '()))
 	 (status 0))
+
+    (set! home (get-home-dir))
+    (pk 'home home)
     (set! prompt (option-ref options 'prompt "*"))
     (set! scripted (option-ref options 'scripted #f))
 
-    (pk 'argv prompt scripted argv)
+    (pk 'prompt prompt 'scripted scripted 'argv argv)
 
     ;; If one of the remaining arguments is a sole hyphen,
     ;; some versions of ed make this scripted mode.
@@ -122,31 +147,37 @@ string"
     (sigaction SIGHUP signal-hup)
     (sigaction SIGQUIT SIG_IGN)
     (sigaction SIGINT signal-int)
-    (set! sigactive #t)
-    
-    ;; This is the big interrupt catch.
-    ;; If any part of the programs throws 'interrupt,
-    ;; we restart everything from here.
 
+    ;; FIXME: This is the big interrupt catch.
+    ;; If I catch a sigint, I whoudl restart processing from here.
+    
+    ;; FIXME: this is where we make an empty buffer
     ;; (set! cbuf (make-empty-cbuffer))
     (set! cbuf (list))
 
+    ;; Enable signal handlers
+    (set! sigactive #t)
+    
     ;; Load the file, if a filename is given
     (cond
-     ((> (length argv) 0)
+     ((and (> (length argv) 0) (> (string-length (car argv)) 0))
       (let* ((fname (car argv))
-	     (ret (read-file fname)))
-	(if (< ret 0)
-	    (begin
-	      (display "?\n" (current-error-port))
-	      (seterrmsg "invalid filename"))
+	     (ret (read-file fname 0 current-addr scripted)))
+	(if (and (< ret 0) (not interactive))
+	    (quit 2)
 	    ;; else
-	    (set! old-filename fname)))))
+	    (if (not (char=? #\! (string-ref-safe fname 0)))
+		(set! old-filename fname)))))
+     (else
+      (format (current-error-port) "?~%")
+      (unless interactive
+	(quit 2))))
 
+    
     ;; This is the main loop
     (while #t
-      (if (and (< (pk status) 0) garrulous)
-	  (display errmsg (current-error-port)))
+      (when (and (< status 0) garrulous)
+	(format (current-error-port) "~a~%" errmsg))
       (display prompt (current-output-port))
       (force-output)
 
@@ -159,29 +190,33 @@ string"
 	 ((= n 0)
 	  (if (and (modified (not scripted)))
 	      (begin
-		(display "?\n" (current-error-port))
+		(format (current-error-port) "?~%")
 		(seterrmsg "warning: file modified")
 		(unless interactive
-		  (if garrulous
-		      (format (current-error-port) "script, line ~a: ~a~%"
-			      lineno errmsg))
+		  (when garrulous
+		    (format (current-error-port) "script, line ~a: ~a~%"
+			    lineno errmsg))
 		  (quit 2))
 		;; FIXME: Is there a Guile equivalent C's clearerr() ?
-		(set! modified 0)
+		(set! modified #f)
 		(set! status EMOD)
 		(continue))
 	      ;; else
 	      (quit 0)))
 
-	 (else
-	  ))
+	 ((char=? (string-ref-safe ibuf (1- n)) #\null)
+	  ;; Discard line
+	  (seterrmsg "unexpected end-of-file")
+	  ;; clearerr STDIN
+	  (set! status ERR)
+	  (continue)))
 	
 	(set! isglobal #f)
-
 	;; Here we parse the current command.  The exec-command
 	;; call is where most of the operations magic happens.
-	(if (and (>= (set&get status (extract-addr-range)) 0)
-		 (>= (set&get status (exec-command)) 0))
+	
+	(if (and (>= (pk 'extract-addr-range-ret (set&get status (extract-addr-range))) 0)
+		 (>= (pk 'exec-command (set&get status (exec-command))) 0))
 	    
 	    ;; exec-command returns zero if the exec-command didn't
 	    ;; request an after-command print operation. A non-zero is
@@ -189,9 +224,9 @@ string"
 	    ;; operation requested.
 	    (if (or (= status 0)
 		    (and (!= status 0)
-			 (>= (set&get status (display-lines current-addr current-addr status)) 0)))
+			 (>= (pk 'CC (set&get status (display-lines current-addr current-addr status))) 0)))
 		(continue)))
-	  
+	
 	;; A status of less than zero is handled here
 	(cond
 	 ((= EOF status)
@@ -228,8 +263,21 @@ string"
 		      "script, line ~a: ~a~%"
 		      lineno errmsg))
 	    (quit 2))))))))
-	  
-    
+
+
+(define (display-lines from to gflag)
+  "Print a range of lines to stdout."
+  (cond
+   ((zero? from)
+    (seterrmsg "invalid address")
+    ERR)
+   (else
+
+    ;; FIXME display some lines
+    0
+    )))
+
+
 (define (extract-addr-range)
   (let ((addr 0))
     (set! addr-cnt 0)
@@ -238,7 +286,7 @@ string"
 
     ;; Loop over all the addresses that appear before the command
     ;; character in an ED command line.
-    (while (>= (set&get addr (next-addr)) 0)
+    (while (>= (pk 'DD (set&get addr (next-addr))) 0)
       (++ addr-cnt)
       (set! first-addr second-addr)
       (set! second-addr addr)
@@ -257,11 +305,22 @@ string"
 	ERR
 	0)))
 
-(define-syntax SKIP_BLANKS
-  (syntax-rules ()
-    ((_)
-     (while (and (isspace (ibufp*)) (not (ibufp? #\newline)))
-       (ibufp++)))))
+(define (get-marked-node-addr n)
+  ;; FIXME: this is where I hook into CBuffer's bookmarks\
+  (throw 'unimplemented)
+  )
+
+(define (get-matching-node-addr pat dir)
+  (throw 'unimplemented)
+  ERR)
+
+(define (SKIP_BLANKS)
+  (let ((count 0))
+    (while (and (isspace? (ibufp*)) (not (ibufp? #\newline)))
+      (set! count (1+ count))
+      (ibufp++))
+    (format #t "SKIP_BLANKS skipped ~a blanks~%" count)
+    *unspecified*))
 
 (define (next-addr)
   "Return the next line address in the command buffer."
@@ -279,12 +338,12 @@ string"
 	    (ibufp++)
 	    (SKIP_BLANKS)
 	    (cond
-	     ((isdigit (ibufp*))
+	     ((isdigit? (ibufp*))
 	      (set! n (ibufp-strtol-idx))
 	      (set! addr (+ addr (if (or (char=? c #\-) (char=? c #\^))
 				     (- n)
 				     n))))
-	     ((not (isspace c))
+	     ((not (isspace? c))
 	      (set! addr (+ addr (if (or (char=? c #\-) (char=? #\^))
 				     -1
 				     1))))))
@@ -349,9 +408,41 @@ string"
 	(set! first #f))
       ret)))
 
+(define (clear-undo-stack)
+  (format #t "in clear-undo-stack UNIMPLEMENTED~%"))
+
+(define (GET_COMMAND_SUFFIX)
+  (format #t "Entering GET_COMMAND_SUFFIX~%")
+  (let ((done #f)
+	(gflag 0))
+    (while (not done)
+      (let ((c (ibufp*)))
+	(cond
+	 ((char=? c #\p)
+	  (set! gflag (logior gflag GPR))
+	  (ibufp++))
+	 ((char=? c #\l)
+	  (set! gflag (logior gflag GLS))
+	  (ibufp++))
+	 ((char=? c #\n)
+	  (set! gflag (logior gflag GNP))
+	  (ibufp++))
+	 (else
+	  (set! done #t)))))
+    (let ((c (ibufp*++)))
+      (if (not (char=? c #\null))
+	  (begin
+	    (seterrmsg "invalid command suffix")
+	    (format #t "Leaving GET_COMMAND_SUFFIX FAIL gflag = ~a~%" gflag)
+	    #f)
+	  (begin
+	    (format #t "Leaving GET_COMMAND_SUFFIX SUCCESS gflag = ~a~%" gflag)
+	    gflag)))))
+
 (define (exec-command)
   "Execute the next command in the command buffer; return
 print request, if any."
+  (format #t "entering exec-command~%")
   (let* (
 	 ;; (tpat #f)
 	 ;; (fnp 0)
@@ -359,45 +450,26 @@ print request, if any."
 	 ;; (sflags 0)
 	 ;; (addr 0)
 	 ;; (n 0)
-	 (GET_COMMAND_SUFFIX
-	  (lambda ()
-	    (let ((done #f)
-		  (gflag 0))
-	      (while (not done)
-		(let ((c (ibufp*)))
-		  (cond
-		   ((char=? c #\p)
-		    (set! gflag (logior gflag GPR))
-		    (ibufp++))
-		   ((char=? c #\l)
-		    (set! gflag (logior gflag GLS))
-		    (ibufp++))
-		   ((char=? c #\n)
-		    (set! gflag (logior gflag GNP))
-		    (ibufp++))
-		   (else
-		    (set! done #t))))
-		(if (not (ibufp++? #\null))
-		    (begin
-		      (seterrmsg "invalid command suffix")
-		      #f)
-		    #t))))))
+	 )
     (SKIP_BLANKS)
     (let ((c (ibufp*++)))
       (cond
 
        ;; Append command
        ((char=? c #\a)
-	(cond
-	 ((not (GET_COMMAND_SUFFIX))
-	  ERR)
-	 (else
-	  (unless isglobal
-	    (clear-undo-stack))
-	  (if (< (append-lines second-addr) 0)
-	      ERR
-	      gflag))))
-       
+	(let ((suffix (GET_COMMAND_SUFFIX)))
+	  (format #t "in append command suffix=~a~%" suffix)
+	  (if suffix
+	      (begin
+		(unless isglobal
+		  (clear-undo-stack))
+		(let ((success (append-lines second-addr)))
+		  (if (< success 0)
+		      ERR
+		      suffix)))
+	      ;; else
+	      ERR)))
+
        ;; Change command
        ((char=? c #\c)
 	(cond
@@ -443,7 +515,7 @@ print request, if any."
 	 ((< addr-cnt 0)
 	  (seterrmsg "unexpected address")
 	  ERR)
-	 ((not (isspace (ibufp*)))
+	 ((not (isspace? (ibufp*)))
 	  (seterrmsg "unexpected command suffix")
 	  ERR)
 	 ((not (set&get fnp (get-filename)))
@@ -465,7 +537,8 @@ print request, if any."
 	    (cond
 	     ((< (read-file (if (> (string-length fnp) 0)
 				fnp
-				old-filename))
+				old-filename)
+			    0 current-addr scripted)
 		 0)
 	      ERR)
 	     (else
@@ -482,7 +555,7 @@ print request, if any."
 	  (seterrmsg "unexpected address")
 	  ERR)
 	 ;; No suffix allowed.
-	 ((not (isspace (ibufp*)))
+	 ((not (isspace? (ibufp*)))
 	  (seterrmsg "unexpected command suffix")
 	  ERR)
 	 ((not (set&get fnp (get-filename)))
@@ -519,7 +592,7 @@ print request, if any."
 	      gflag))))
 
        ;; Help command
-       ((cond=? c #\h)
+       ((char=? c #\h)
 	(cond
 	 ((> addr-cnt 0)
 	  (seterrmsg "unexpected address")
@@ -531,9 +604,9 @@ print request, if any."
 	gflag)
 
        ;; Help-mode-command
-       ((cond=? c #\H)
+       ((char=? c #\H)
 	(cond
-	 ((> addr_cnt 0)
+	 ((> addr-cnt 0)
 	  (seterrmsg "unexpected address")
 	  ERR)
 	 ((not (GET_COMMAND_SUFFIX))
@@ -544,15 +617,15 @@ print request, if any."
 
        ;; Insert command
        ((char=? c #\i)
-	 (when (= second-addr 0)
-	   (set! second-addr 1))
-	 (cond
-	  ((not (GET_COMMAND_SUFFIX))
-	   ERR)
-	  (else
-	   (unless isglobal (clear-undo-stack))
-	   (when (< (append-lines (1- second-addr)) 0)
-	     ERR))))
+	(when (= second-addr 0)
+	  (set! second-addr 1))
+	(cond
+	 ((not (GET_COMMAND_SUFFIX))
+	  ERR)
+	 (else
+	  (unless isglobal (clear-undo-stack))
+	  (when (< (append-lines (1- second-addr)) 0)
+	    ERR))))
 
        ;; Join command
        ((char=? c #\j)
@@ -584,8 +657,8 @@ print request, if any."
 	    gflag))))
 
        ))))
-	       
-		
+
+
 
 (define (get-tty-line)
   "Read a line of text from stdin into the command line buffer.
@@ -598,10 +671,11 @@ Return line length."
      (else
       (set! ibuf txt)
       (string-length txt)))))
-  
+
 (define (append-lines n)
   "Insert text from stdin to after line N. Stop when either a
 single period is read or EOF.  Return status."
+  (format #t "in append-lines n=~s~%" n)
   (let ((L 0)
 	(lp ibufp)
 	(eot #\null)
@@ -650,128 +724,69 @@ single period is read or EOF.  Return status."
       ;; set modified flag
       )))
 
+(define (handle-hup signo)
+  (unless sigactive
+    (quit 1))				; signal race?
+  (set! sighup #f)
+  ;; Try to write the crash-out file here.  Or, failing that, in my
+  ;; home directory.
+  (if (and (not (zero? addr-last))
+	   (< (write-file "ed.hup" "1" 1 addr-last) 0)
+	   (not (string-null? home))
+	   (char=? (string-ref-safe home 0) #\/))
+      (write-file (string-append home "/ed.hup") "w" 1 addr-last))
+  (primitive-_exit 2))
+
+(define (handle-int signo)
+  (unless sigactive
+    (primitive-_exit 1))
+  (set! sigint #f)
+  ;; FIXME, here I somehow jump to the top of the main loop
+  (throw 'interrupt))
+
 (define (signal-winch signo)
   ;; When there is a way to check TIOCGWINSZ,
   ;; then set rows and cols here.
   *unspecified* )
 
 (define (signal-int signo)
-  *unspecified*)
+  (if (> mutex 0)
+      (set! sigint #t)
+      (handle-int signo)))
 
 (define (signal-hup signo)
-  *unspecified*)
+  (if (> mutex 0)
+      (set! sighup #t)
+      (handle-hup signo)))
 
-  ;; a (append) + suffix
-  ;; c (change) + suffix
-  ;; d (delete) + suffix
-  ;; e (edit) + blanks + filename-or-!
-  ;; E (edit wo checking) + blanks + filename-or-!
-  ;; f (filename) + blanks + filename
-  ;; g (global) + regex + command list
-  ;; G (global) + regex + suffix
-  ;; h (help) + suffix
-  ;; H (help-mode) + suffix
-  ;; i (insert) + suffix
-  ;; j (join) + suffix
-  ;; k (mark) + bookmark + suffix
-  ;; l (list) + suffix
-  ;; m (move) + address + suffix
-  ;; n (number) + suffix
-  ;; p (print)  + suffix
-  ;; P (prompt) + suffix
-  ;; q (quit)
-  ;; Q (quit w/o checking)
-  ;; r (read) + blanks + filename-or-!
-  ;; s (substitute) + regex + replacement + flags
-  ;; t (copy) + address + suffix
-  ;; u (undo) + suffix
-  ;; v (non-match) + regex + command-list
-  ;; V (non-match) + regex + suffix
-  ;; w (write) + blanks + filename-or-!
-  ;; = (line-no) + suffix
-  ;; ! (shell) + command
-  
-#|      
-(define (GET_THIRD_ADDR addr)
-  (let ((ol1 first-addr)
-	(ol2 second-addr))
-    (when (< (extract-addr-range) 0)
-      (set! ret ERR)
-      (break))
-    (when (or (< second-addr 0) (< addr-last second-addr))
-      (seterrmsg "invalid address")
-      (set! ret ERR)
-      (break))
-    (set! addr second-addr)
-    (set! first-addr ol1)
-    (set! second-addr ol2)))
+;; a (append) + suffix
+;; c (change) + suffix
+;; d (delete) + suffix
+;; e (edit) + blanks + filename-or-!
+;; E (edit wo checking) + blanks + filename-or-!
+;; f (filename) + blanks + filename
+;; g (global) + regex + command list
+;; G (global) + regex + suffix
+;; h (help) + suffix
+;; H (help-mode) + suffix
+;; i (insert) + suffix
+;; j (join) + suffix
+;; k (mark) + bookmark + suffix
+;; l (list) + suffix
+;; m (move) + address + suffix
+;; n (number) + suffix
+;; p (print)  + suffix
+;; P (prompt) + suffix
+;; q (quit)
+;; Q (quit w/o checking)
+;; r (read) + blanks + filename-or-!
+;; s (substitute) + regex + replacement + flags
+;; t (copy) + address + suffix
+;; u (undo) + suffix
+;; v (non-match) + regex + command-list
+;; V (non-match) + regex + suffix
+;; w (write) + blanks + filename-or-!
+;; = (line-no) + suffix
+;; ! (shell) + command
 
-
-(define-syntax SKIP_BLANKS
-  (syntax-rules ()
-    ((SKIP_BLANKS str idx)
-     (while #t
-       (let ((c (string-ref-safe str idx)))
-	 (if (and (isspace c) (not (char=? #\newline c)))
-	     (set! idx (1+ idx))
-	     ;; else
-	     (break)))))))
-
-(define-syntax strp
-  (syntax-rules ()
-    ((strp! c str idx)
-     (set! c (string-ref-or-null str idx))
-     c)))
-
-(define-syntax STRTOI
-  (syntax-rules ()
-    ((STRTOI n str idx)
-
-     (define-syntax MUST_BE_FIRST
-       (syntax-rules ()
-	 ((MUST_BE_FIRST first)
-	  (if (not first)
-	      (begin
-		(seterrmsg "invalid address")
-		
-
-		(define (extract-addr-range str)
-		  
-		  )
-
-		(define (next-addr str)
-
-		  (let ((idx (skip-blanks-idx str 0))
-			(first #t))
-		    (while #t
-		      (let ((c (string-ref str idx)))
-			(cond
-			 ((member c '(#\+ #\tab #\space #\- #\^))
-			  (lambda (idx)
-			    (let ((c2 (string-ref str idx)))
-			      (if (char-set-contains? char-set:digit c2)
-				  (* (strtoi str idx)
-				     
-				     (char-set-contains? char-set:digit (string-ref str (skip-blanks-idx str (1+ idx))))
-				     )
-				  ((member c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
-				   )
-				  ((member c '(#\. #\$))
-				   )
-				  ((member c '(#\/ #\?))
-				   )
-				  ((member c '(#\% #\, #\;))
-				   )
-				  (else
-				   ))
-			      )))
-			 )
-
-			(define (skip-blanks-idx str idx)
-			  (let loop ((i idx))
-			    (let ((c (string-ref str i)))
-			      (when (and (char-set-contains char-set:space c)
-					 (not (char=? c #\nl)))
-				(loop (1+ i)))
-			      i)))
-			|#
+(main (command-line))
