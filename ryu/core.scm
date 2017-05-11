@@ -197,6 +197,41 @@
 	    csignbit
 	    signbit
 	    
+	    ;; 7.12.4.4 The atan2 functions
+	    atan2
+
+	    ;; 7.12.6.2 The exp2 functions
+	    exp2
+
+	    ;; 7.12.6.3 The expm1 functions
+	    expm1
+
+	    ;; 7.12.6.4 The frexp functions
+	    frexp
+
+	    ;; 7.12.11.1 The copysign functions
+	    copysign
+
+	    ;; 7.18 Boolean type and values
+	    ctrue
+	    cfalse
+	    ->cbool
+	    cbool->bool
+
+	    ;; 7.20.2.1 Limits of exact-width integers
+	    INT8_MIN
+	    INT8_MAX
+	    UINT8_MAX
+	    INT16_MIN
+	    INT16_MAX
+	    UINT16_MAX
+	    INT32_MIN
+	    INT32_MAX
+	    UINT32_MAX
+	    INT64_MIN
+	    INT64_MAX
+	    UINT64_MAX
+	    
 	    ;; <complex.h>
 	    CMPLX
 	    creal
@@ -212,9 +247,6 @@
 	    casinh cacosh catanh
 
 	    ;; <math.h>
-	    signbit
-	    exp2
-	    expm1
 	    frexp
 	    ilogb
 	    ldexp
@@ -234,7 +266,6 @@
 	    trunc
 	    fmod
 	    remquo
-	    copysign
 	    fdim
 	    fma
 	    
@@ -245,18 +276,6 @@
 	    ;; <stdatomic.h>
 
 	    ;; <stdint.h>
-	    INT8_MIN
-	    INT8_MAX
-	    UINT8_MAX
-	    INT16_MIN
-	    INT16_MAX
-	    UINT16_MAX
-	    INT32_MIN
-	    INT32_MAX
-	    UINT32_MAX
-	    INT64_MIN
-	    INT64_MAX
-	    UINT64_MAX
 
 	    ;; <stdio.h>
 	    
@@ -1670,83 +1689,57 @@ or NaN.  Else #f"
       #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <math.h>
+;; 7.12.4.1 The acos functions
+;; 7.12.4.2 The asin functions
+;; 7.12.4.3 The atan functions
+;; 7.12.4.4 The atan2 functions
 
+(define (atan2 y x)
+  "Computes the arctangent of y/x."
+  (atan y x))
+
+;; 7.12.4.5 The cos functions
+;; 7.12.4.6 The sin functions
+;; 7.12.4.7 The tan functions
+;; 7.12.5.1 The acos functions
+;; 7.12.5.2 The asinh functions
+;; 7.12.5.3 The atanh functions
+;; 7.12.5.4 The cosh functions
+;; 7.12.5.5 The sinh functions
+;; 7.12.5.6 The tanh functions
+;; 7.12.6.1 The exp functions
+;; 7.12.6.2 The exp2 functions
 
 (define (exp2 x)
   "Compute the base-2 exponential of x."
   (expt 2.0 x))
 
+;; 7.12.6.3 The expm1 functions
+
 (define (expm1 x)
   "Computes the base-e exponential of the argument, minus 1."
   (- (exp x) 1.0))
 
+;; 7.12.6.4 The frexp functions
+
+;; FIXME: slow and accumulates multiplication errors
 (define (frexp val)
   "Returns val broken as a normalized fraction and an integral power
 of 2."
-  'fixme)
+  (if (zero? val)
+      (cons 0 0)
+      ;; 
+      (let loop ((val val)
+		 (x   0))
+	(cond
+	 ((< val 0.5)
+	  (loop (* val 2.0) (1- x)))
+	 ((>= val 1.0)
+	  (loop (* val 0.5) (1+ x)))
+	 (else
+	  (cons val x))))))
 
-(define (ilogb val)
-  'fixme)
-
-(define (ldexp val)
-  'fixme)
-
-;; With a real implementaion of log1p, it should be more accurate that
-;; (log (1+ x))
-(define (log1p x)
-  "Compute the natural logarithm of val + 1."
-  (log (1+ x)))
-
-(define (log2 x)
-  'fixme)
-
-(define (logb x)
-  'fixme)
-
-(define (modf x)
-  'fixme)
-
-(define (scalbn x n)
-  'fixme)
-
-(define (cbrt x)
-  'fixme)
-
-(define (hypot x y)
-  'fixme)
-
-(define (pow x y)
-  (expt x y))
-
-(define (erf x)
-  'fixme)
-
-(define (lgamma x)
-  'fixme)
-
-(define (tgamma x)
-  'fixme)
-
-(define (ceil x)
-  (ceiling x))
-
-(define (lround x)
-  "Rounds to the nearest integer value, but, for halfway cases,
-always rounds away from zero."
-  'fixme)
-
-(define (trunc x)
-  "Round positive numbers down toward zero.  Round negative numbers
-up toward zero."
-  (truncate x))
-
-(define (fmod x y)
-  ;; some other remainder function
-  'fixme)
-
-(define (remquo x y)
-  'fixme)
+;; 7.12.11.1 The copysign functions
 
 (define (copysign x y)
   "Return a value with the magnitude of X and the sign of Y. Y should not be
@@ -1756,134 +1749,20 @@ complex."
 	 -1
 	 1)))
 
-(define (fdim x y)
-  "if x > y, returns x - y.  Otherwise, returns zero."
-  'fixme)
+;; 7.18 Boolean type and values
+(define ctrue 1)
 
-;; A proper implementation may avoid rounding error.
-(define (fma x y z)
-  
-  (+ (* x y) z))
+(define cfalse 0)
 
+(define (->cbool x)
+  "Returns 0 if x if #f, else it returns 1."
+  (if x 1 0))
 
-;; ABS - is in core Guile
+(define (cbool->bool x)
+  "Returns #f if x is zero. Else returns #t."
+  (if (zero? x) #f #t))
 
-;; DIV - returns a structure with quotient and remainder. One
-;; could mock it up like this.
-
-;; IMAXABS
-;; IMAXDIV
-
-;; FABS
-;; FMOD
-;; REMAINDER
-;; REMQUO
-;; FMA
-;; FMAX
-;; FMIN
-;; FDIM
-;; NAN
-;; EXP
-;; EXP2
-;; EXPM1
-;; LOG
-;; LOG10
-;; LOG2
-;; LOG1P
-;; POW
-;; SQRT
-;; CBRT
-;; HYPOT
-;; SIN
-;; COS
-;; TAR
-;; ASIN
-;; ACOS
-;; ATAN
-;; ATAN2
-;; SINH
-;; COSH
-;; TANH
-;; ASINH
-;; ACOSH
-;; ATANH
-;; ERF
-;; ERFC
-;; TGAMMA
-;; LGAMMA
-;; CEIL
-;; FLOOR
-;; TRUNC
-;; ROUND
-;; NEARBYINT
-;; RINT
-;; LRINT
-;; LLRINT
-;; FREXP
-;; LDEXP
-;; MODF
-;; SCALBN
-;; ILOGB
-;; LOGB
-;; NEXTAFTER
-;; NEXTTOWARD
-;; COPYSIGN - the C version of this is for float, double, or long double.
-;; Here we allow all types of numbers.
-
-;; FPCLASSIFY
-;; ISFINITE
-;; ISINF
-;; ISNAN
-;; ISNORMAL
-;; SIGNBIT
-;; ISGREATER
-;; ISGREATEREQUAL
-;; ISLESS
-;; ISLESSEQUAL
-;; ISLESSGREATER
-;; ISUNORDERED
-;; HUGE_VALF
-;; HUGE_VAL
-;; HUGE_VALL
-;; INFINITY
-;; NAN
-;; FP_FAST_FMAF
-;; FP_FAST_FMA
-;; FP_FAST_FMAL
-;; FP_ILOGB0
-;; FP_ILOGBNAN
-;; MATH_ERRHANDLING
-;; MATH_ERRNO
-;; MATH_ERREXCEPT
-;; FP_NORMAL
-;; FP_SUBNORMAL
-;; FP_ZERO
-;; FP_INFINITE
-;; FP_NAN
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <setjmp.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <signal.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stdalign.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stdarg.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stdatomic.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stdbool.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stddef.h>
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stdint.h>
+;; 7.20.2.1 Limits of exact-width integers
 
 (define INT8_MIN (signed-limit-neg (sizeof int8)))
 (define INT8_MAX (signed-limit (sizeof int8)))
@@ -1904,9 +1783,6 @@ complex."
 (define LONG_MIN (signed-limit-neg (sizeof long)))
 (define LONG_MAX (signed-limit (sizeof long)))
 (define ULONG_MAX (unsigned-limit (sizeof unsigned-long)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; <stdio.h>
 
 ;; 7.21.4.1 The remove function
 ;; The remove function in C is the same as the delete-file
@@ -2657,6 +2533,208 @@ DEST, or #f if the string STR can not be found in DEST."
 (define (strlen str)
   "Return the length of STR."
   (string-length str))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <math.h>
+
+
+
+
+
+(define (ilogb val)
+  'fixme)
+
+(define (ldexp val)
+  'fixme)
+
+;; With a real implementaion of log1p, it should be more accurate that
+;; (log (1+ x))
+(define (log1p x)
+  "Compute the natural logarithm of val + 1."
+  (log (1+ x)))
+
+(define (log2 x)
+  'fixme)
+
+(define (logb x)
+  'fixme)
+
+(define (modf x)
+  'fixme)
+
+(define (scalbn x n)
+  'fixme)
+
+(define (cbrt x)
+  'fixme)
+
+(define (hypot x y)
+  'fixme)
+
+(define (pow x y)
+  (expt x y))
+
+(define (erf x)
+  'fixme)
+
+(define (lgamma x)
+  'fixme)
+
+(define (tgamma x)
+  'fixme)
+
+(define (ceil x)
+  (ceiling x))
+
+(define (lround x)
+  "Rounds to the nearest integer value, but, for halfway cases,
+always rounds away from zero."
+  'fixme)
+
+(define (trunc x)
+  "Round positive numbers down toward zero.  Round negative numbers
+up toward zero."
+  (truncate x))
+
+(define (fmod x y)
+  ;; some other remainder function
+  'fixme)
+
+(define (remquo x y)
+  'fixme)
+
+
+(define (fdim x y)
+  "if x > y, returns x - y.  Otherwise, returns zero."
+  'fixme)
+
+;; A proper implementation may avoid rounding error.
+(define (fma x y z)
+  
+  (+ (* x y) z))
+
+
+;; ABS - is in core Guile
+
+;; DIV - returns a structure with quotient and remainder. One
+;; could mock it up like this.
+
+;; IMAXABS
+;; IMAXDIV
+
+;; FABS
+;; FMOD
+;; REMAINDER
+;; REMQUO
+;; FMA
+;; FMAX
+;; FMIN
+;; FDIM
+;; NAN
+;; EXP
+;; LOG
+;; LOG10
+;; LOG2
+;; LOG1P
+;; POW
+;; SQRT
+;; CBRT
+;; HYPOT
+;; SIN
+;; COS
+;; TAR
+;; ASIN
+;; ACOS
+;; ATAN
+;; ATAN2
+;; SINH
+;; COSH
+;; TANH
+;; ASINH
+;; ACOSH
+;; ATANH
+;; ERF
+;; ERFC
+;; TGAMMA
+;; LGAMMA
+;; CEIL
+;; FLOOR
+;; TRUNC
+;; ROUND
+;; NEARBYINT
+;; RINT
+;; LRINT
+;; LLRINT
+;; FREXP
+;; LDEXP
+;; MODF
+;; SCALBN
+;; ILOGB
+;; LOGB
+;; NEXTAFTER
+;; NEXTTOWARD
+
+;; FPCLASSIFY
+;; ISFINITE
+;; ISINF
+;; ISNAN
+;; ISNORMAL
+;; ISGREATER
+;; ISGREATEREQUAL
+;; ISLESS
+;; ISLESSEQUAL
+;; ISLESSGREATER
+;; ISUNORDERED
+;; HUGE_VALF
+;; HUGE_VAL
+;; HUGE_VALL
+;; INFINITY
+;; NAN
+;; FP_FAST_FMAF
+;; FP_FAST_FMA
+;; FP_FAST_FMAL
+;; FP_ILOGB0
+;; FP_ILOGBNAN
+;; MATH_ERRHANDLING
+;; MATH_ERRNO
+;; MATH_ERREXCEPT
+;; FP_NORMAL
+;; FP_SUBNORMAL
+;; FP_ZERO
+;; FP_INFINITE
+;; FP_NAN
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <setjmp.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <signal.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stdalign.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stdarg.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stdatomic.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stdbool.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stddef.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stdint.h>
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; <stdio.h>
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; <tgmath.h>
