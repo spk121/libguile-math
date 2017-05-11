@@ -1,13 +1,37 @@
 ;; Extensions to Guile ports.
 (define-module (mlg port)
-  #:export (peek-char=?
+  #:use-module (ice-9 rdelim)
+  #:use-module (mlg strings)
+  #:use-module (mlg characters)
+  #:export (get-read-regex-string-err
+	    format-error
+	    peek-char-safe
+	    peek-2nd-char-safe
+	    peek-char=?
 	    peek-char-ci=?
-	    peek-char-isspace?
+	    peek-char-isalnum?
+	    peek-char-isalpha?
+	    peek-char-iscntrl?
 	    peek-char-isdigit?
+	    peek-char-isgraph?
+	    peek-char-islower?
+	    peek-char-isprint?
+	    peek-char-ispunct?
+	    peek-char-isspace?
+	    peek-char-isupper?
+	    peek-char-isxdigit?
+	    read-char=?
+	    read-extended-line
 	    read-whitespace
 	    read-integer
 	    read-regex-string
 	    ))
+
+(define format-error
+  (lambda args
+    (apply format `(,(current-error-port) . ,args))))
+
+;; nl as alias for newline
 
 ;; If p is a C string pointer.
 ;; *c is peek-char
@@ -18,7 +42,6 @@
 
 ;; peek-char gets 1 char, doesn't increment, may return eof
 
-
 (define (peek-char-safe port)
   (let ((c (peek-char port)))
     (if (eof-object? c)
@@ -26,6 +49,9 @@
 	c)))
 
 (define (peek-char=? port c2)
+  "Compare the next character availablle from PORT to a given
+character, without updating por to point to the following character.
+If the port returns #<eof>, this procedure returns #f."
   (let ((c (peek-char port)))
     (if (eof-object? c)
 	#f
@@ -39,19 +65,58 @@
 	;; else
 	(char-ci=? c c2))))
 
-(define (peek-char-isspace? port)
-  (let ((c (peek-char port)))
-    (if (eof-object? c)
-	#f
-	;; else
-	(char-set-contains? char-set:whitespace c))))
+(define-syntax %peek-char-test
+  (syntax-rules ()
+    ((_ port func)
+     (let ((c (peek-char port)))
+       (if (eof-object? c)
+	   #f
+	   ;; else
+	   (func c))))))
+
+(define (peek-char-isalnum? port)
+  "Return #t if the next character to be read in port is alphanumeric."
+  (%peek-char-test port isalnum?))
+
+(define (peek-char-isalpha? port)
+  "Return #t if the next character to be read in port is alphabetic."
+  (%peek-char-test port isalpha?))
+
+(define (peek-char-iscntrl? port)
+  "Return #t if the next character to be read in port is a control character."
+  (%peek-char-test port iscntrl?))
 
 (define (peek-char-isdigit? port)
-  (let ((c (peek-char port)))
-    (if (eof-object? c)
-	#f
-	;; else
-	(char-set-contains? char-set:digit c))))
+  "Return #t if the next character to be read in port is a numerical."
+  (%peek-char-test port isdigit?))
+
+(define (peek-char-isgraph? port)
+  "Return #t if the next character to be read in port is graphical."
+  (%peek-char-test port isgraph?))
+
+(define (peek-char-islower? port)
+  "Return #t if the next character to be read in port is lower-case."
+  (%peek-char-test port isgraph?))
+
+(define (peek-char-isprint? port)
+  "Return #t if the next character to be read in port is a printing character."
+  (%peek-char-test port isprint?))
+
+(define (peek-char-ispunct? port)
+  "Return #t if the next character to be read in port is punctuation."
+  (%peek-char-test port ispunct?))
+
+(define (peek-char-isspace? port)
+  "Return #t if the next character to be read in port is whitespace."
+  (%peek-char-test port isspace?))
+
+(define (peek-char-isupper? port)
+  "Return #t if the next character to be read in port is upper-case."
+  (%peek-char-test port isupper?))
+
+(define (peek-char-isxdigit? port)
+  "Return #t if the next character to be read in port is a hex digit character."
+  (%peek-char-test port isxdigit?))
 
 (define (peek-2nd-char-safe port)
   (let ((c (peek-char port)))
@@ -66,11 +131,36 @@
 		#\null
 		c2))))))
 
+(define (read-char=? port c2)
+  "Read the next character available from PORT.  Return #t if it is
+equal to the given character.  Return #f if it does not equal the
+character, or if the port returned #<eof>."
+  (let ((c (peek-char port)))
+    (if (eof-object? c)
+	#f
+	;; else
+	(char=? c c2))))
+
 (define (read-char-safe port)
   (let ((c (read-char port)))
     (if (eof-object? c)
 	#\null
 	c)))
+
+(define* (read-extended-line #:optional (port (current-input-port)))
+  "Reads a line of text from a port and returns a string.  If the line
+of text ends with backslash, it reads an additional line which is
+appended to the output."
+  (let loop ((line (read-line port 'trim))
+	     (output ""))
+    (cond
+     ((eof-object? line)
+      line)
+     ((string-ends-with? line #\\)
+      (loop (read-line port 'trim)
+	    (string-append output (string-drop-right line 1))))
+     (else
+      (string-append output line)))))
 
 (define* (read-whitespace #:optional (port (current-input-port)))
   "Reads and returns any awating whitespace characters from port.

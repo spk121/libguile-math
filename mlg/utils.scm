@@ -3,6 +3,7 @@
   #:use-module (ice-9 rdelim)
   #:export (build-filename
 	    get-home-dir
+	    get-tmp-dir
 	    get-user-name
 	    get-user-data-dir
 	    get-user-config-dir
@@ -122,6 +123,22 @@ in FILENAME"
       home-env)
      (else
       (get-user-database-dir)))))
+
+(define (get-tmp-dir)
+  (let ((temp-env (getenv "TEMP"))
+	(tmpdir-env (getenv "TMPDIR"))
+	(osname (utsname:sysname (uname))))
+    (cond
+     ((string=? osname "Windows")
+      (if (and temp-env (> (string-length temp-env) 0))
+	  temp-env
+	  ;; else
+	  (get-windows-directory-root)))
+     (else
+      (if (and tmpdir-env (> (string-length tmpdir-env) 0))
+	  tmpdir-env
+	  ;; else
+	  "/tmp")))))
 
 (define (get-user-name)
   "Return the username of the current user."
