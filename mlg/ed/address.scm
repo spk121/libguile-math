@@ -4,16 +4,16 @@
   #:use-module (oop goops describe)
   #:use-module (mlg port)
   #:use-module (mlg characters)
-  #:export (extract-addr-range
-	    get-extract-addr-range-error))
+  #:export (addr-get-range
+	    addr-get-range-error))
 
 (define *compute-ed-address-error* "")
 
-(define (get-extract-addr-range-error)
+(define (addr-get-range-error)
   *compute-ed-address-error*)
 
-(define (extract-addr-range port current-line last-line bmark-callback regex-callback)
-  (set! *compute-ed-address-error*)
+(define (addr-get-range port current-line last-line bmark-callback regex-callback)
+  (set! *compute-ed-address-error* "")
   (take-up-to-two-right
    (compute-ed-address
     (parse-ed-address port) current-line last-line bmark-callback regex-callback)))

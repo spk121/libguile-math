@@ -42,7 +42,7 @@ is CHAR."
 	newstr)))
 
 (define (string->ed-escaped-string str)
-  "Converts a string into another strings. Non-printable characters
+  "Converts a string into another string. Non-printable characters
 will be converted into the escape sequences that POSIX 'ed' prefers.
 Dollar signs will be escaped, as well."
   (string-fold

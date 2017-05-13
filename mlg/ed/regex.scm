@@ -1,8 +1,8 @@
 (define-module (mlg ed regex)
   #:use-module (gano CBuffer)
-  #:export (set-regex-cbuffer
+  #:export (regex-set-default-cbuf
 	    get-regex-cbuffer
-	    regex-cb))
+	    regex-default-cb))
 
 (define *regex-cbuffer* #f)
 (define *regex-string* ".")
@@ -12,12 +12,12 @@
 regular expressions."
   *regex-cbuffer*)
 
-(define (set-regex-cbuffer cbuf)
+(define (regex-set-default-cbuf cbuf)
   "Set the CBuffer to be used when searching regular
 expressions."
   (set! *regex-cbuffer* cbuf))
 
-(define (regex-cb regex-string start-line direction)
+(define (regex-default-cb regex-string start-line direction)
   "Does a regular expression search in the currently set
 *regex-cbuffer*.  If direction is +1 it searches forward in the list
 of strings starting with the line after start-line.  If direction is

@@ -11,6 +11,9 @@
   #:use-module (mlg strings)
   #:use-module (mlg port)
   #:use-module (mlg debug)
+  #:use-module (mlg address)
+  #:use-module (mlg ed bmark)
+  #:use-module (mgl ed regex)
   #:export ())
 
 ;; "static buffers"
@@ -38,8 +41,8 @@
 (define current-addr 0)			; current address in editor buffer
 (define addr-last 0)			; last address in editor buffer
 (define lineno 0)			; script line number
-(define prompt "*")			; command-line prompt
-
+(define prompt-string "*")		; command-line prompt
+(define prompt-active #f)
 (define home "") 			; home directory
 
 ;; Globals
@@ -71,7 +74,7 @@
 
     (set! home (get-home-dir))
     
-    (set! prompt (option-ref options 'prompt "*"))
+    (set! prompt-string (option-ref options 'prompt "*"))
     (set! scripted (option-ref options 'scripted #f))
 
     ;; If one of the remaining arguments is a sole hyphen,
@@ -120,6 +123,11 @@
       (unless interactive
 	(quit 2))))
 
+
+    ;; Prepare the subsystems
+    (bmark-set-default-cbuf cbuf)
+    (regex-set-default-cbuf cbuf)
+    
     
     ;; This is the main loop
     (while #t
@@ -127,9 +135,20 @@
 	(format-error "~a~%" errmsg))
       (if verbose
 	  (%dump-cbuffer cbuf))
-      (display prompt)
+      (when prompt-active (display prompt))
       (force-output)
 
+      
+      ;; This is input is parsed and commands are run
+      (let ((line-cur (get-line-cur cbuf))
+	    (line-last (max 0 (1- (get-line-count cbuf)))))
+	(let ((addr-range (addr-get-range port line-cur line-last
+					  bmark-default-cb regex-default-cb)))
+	  (when (not addr-range)
+	    (seterrmsg (addr-get-range-error))
+	    (set! status ERR)
+	    (continue))
+	  (dispatch cbuf current-input-port addr-range bmark-default-cb regex-default-cb)
       (let ((n (get-tty-line)))
 	(cond
 	 ((< n 0)
