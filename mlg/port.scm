@@ -275,12 +275,11 @@ character (which should usually be '/') will be the delimiter.  It
 searches forward for the matching delimiter, handling shell escapes.
 The text of the delimited regular expression is returned.
 
-Return #f if no delimited regular expression was found, or #<eof>
-if the port is EOF.
+Return #f if no delimited regular expression was found, or #<eof> if
+the port is EOF.
 
-If #f is returned, calling get-read-regex-string-err will return the reason
-why no regex string was found."
-  
+If #f is returned, calling get-read-regex-string-err will return the
+reason why no regex string was found."
   (set! *read-regex-string-err* "")
   (let ((delimiter (read-char port)))
     
@@ -304,9 +303,9 @@ why no regex string was found."
       (read-regex-pattern-string port delimiter)))))
 
 (define (read-regex-pattern-string port delimiter)
-  "Extracts a regex pattern string terminated by delimiter, handline
-escapes and looking for errors.  Returns the pattern string, or
-#f if no valid pattern string was found."
+  "Extracts a regex pattern string terminated by delimiter, handling
+escapes and looking for errors.  Returns the pattern string, or #f if
+no valid pattern string was found."
   (let loop ((c (peek-char port))
 	     (txt (string delimiter)))
     (cond
@@ -384,7 +383,6 @@ the string, or #f, if not valid character class string was found."
 	      (set! txt (string-append txt (string c d)))
 	      (let loop2 ((d2 (peek-char-safe port))
 			  (c2 (peek-2nd-char-safe port)))
-		;; (pk 'loop2 'c c 'd d 'd2 d2 'c2 c2)
 		(cond
 		 ((or (char=? d2 #\null)
 		      (char=? c2 #\null))
