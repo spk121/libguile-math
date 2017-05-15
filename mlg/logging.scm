@@ -17,36 +17,52 @@
   (lognot-uint x 2))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; gmessages.h (55): GLogLevelFlags
 
+;; Internal flags
 (define LOG_FLAG_RECURSION (ash 1 0))
 (define LOG_FLAG_FATAL     (ash 1 1))
+;; Log level for errors and assertion failures
 (define LOG_LEVEL_ERROR    (ash 1 2))
+;; Log level for serious warnings
 (define LOG_LEVEL_CRITICAL (ash 1 3))
 (define LOG_LEVEL_WARNING  (ash 1 4))
 (define LOG_LEVEL_MESSAGE  (ash 1 5))
+;; For informational messages
 (define LOG_LEVEL_INFO     (ash 1 6))
 (define LOG_LEVEL_DEBUG    (ash 1 7))
+;; Mask for all log levels but no internal flags
 (define LOG_LEVEL_MASK     (lognot-uint16 (logior LOG_FLAG_RECURSION
 						  LOG_FLAG_FATAL)))
+
+;; Mask for log levels that are considered fatal by default
 (define LOG_FATAL_MASK    (logior LOG_FLAG_RECURSION LOG_LEVEL_ERROR))
 
+;; 1139: ALERT_LEVELS
 (define ALERT_LEVELS      (logior LOG_LEVEL_ERROR
 				  LOG_LEVEL_CRITICAL
 				  LOG_LEVEL_WARNING))
+
+;; 1142: DEFAULT_LEVELS
+;; These are emitted by the default log handler.
 (define DEFAULT_LEVELS    (logior LOG_LEVEL_ERROR
 				  LOG_LEVEL_CRITICAL
 				  LOG_LEVEL_WARNING
 				  LOG_LEVEL_MESSAGE))
+;; 1144 INFO_LEVELS
+;; These are filtered by MESSAGES_DEBUG in the default log handler
 (define INFO_LEVELS       (logior LOG_LEVEL_INFO
 				  LOG_LEVEL_DEBUG))
 
+;; 486: GLogDomain
 (define-record-type <Domain>
   (make-domain log-domain fatal-mask handlers)
   domain?
   (_log_domain domain:log-domain)
-  (_fatal_mask domain:fatal-mask)
+  (_fatal_mask domain:fatal-mask domain:set-fatal-mask!)
   (_handlers domain:handlers domain:set-handlers!))
 
+;; 493: GLogHandler
 (define-record-type <LogHandler>
   (make-log-handler id log-level log-func destroy-notify)
   log-handler?
@@ -55,6 +71,7 @@
   (_log_func log-func)
   (_destroy-notify destroy-notify))
 
+;; 505: variables
 (define *messages-lock* (make-mutex))
 (define *log-domains* '())
 (define *log-depth* (make-fluid 0))
@@ -68,6 +85,145 @@
       (trap-here-0)
       (exit 1)))
 
+;; 584: write_string
+(define (write-string port string)
+  "For now, an alias for display."
+  (display string port))
+
+;; 591: write_string_sized
+(define (write-bytevector port bv)
+  "For now, an alias for put-bytevector."
+  (put-bytevector port bv))
+
+;; 603: g_log_find_domain_L
+(define (log-find-domain-L log-domain)
+  "Finds a log domain whose domain string matches LOG-DOMAIN."
+  (if (null? *log-domains*)
+      #f
+      (find
+       (lambda (domain)
+	 (equal? log-domain (domain:log-domain domain)))
+       *log-domains*)))
+
+;; 618: g_log_domain_new_L
+(define (log-domain-new-L log-domain)
+  "Appends a new default domain to the domain list.
+Should this be in a mutex?  Should we be checking for duplicates?"
+  (set! *log-domains*
+    (append *log-domains*
+	    (list (make-log-domain (string-copy log-domain)
+				   LOG_FATAL_MASK
+				   #f)))))
+
+;; 634: g_log_domain_check_free_L
+(define (log-domain-check-free-L domain)
+  "This appears to be a routine to cull a given log domain from the
+log domain list if it would never print anything."
+  (when (and (eqv? (domain:fatal-mask domain) LOG_FATAL_MASK)
+	     (null? (domain:handlers domain)))
+    (set! *log-domains*
+      (filter-map
+       (lambda (entry)
+	 (not (equal? domain entry)))
+       *log-domains*))))
+
+;; 663: g_log_domain_get_handler_L
+(define (log-domain-get-handler-L domain log-level)
+  "Searches through the log domain list to find a log function for a
+given domain and log level."
+  (when (and (domain? domain) log-level (not (zero? log-level)))
+    (let* ((handlers (domain:handlers domain))
+	   (handler (find (lambda (entry)
+			    (eqv? (logand (handler:log-level entry) log-level)
+				  log-level))
+			  handlers)))
+      (if handler
+	  handler
+	  *default-log-func*))))
+
+;; 712: g_log_set_always_fatal
+(define (log-set-always-fatal _fatal_mask)
+  (let ((fatal-mask (logand (logior _fatal_mask LOG_LEVEL_ERROR)
+			    (lognot-uint16 LOG_FLAG_FATAL))))
+    (mutex-lock *messages-lock*)
+    (let ((old-mask *log-always-fatal*))
+      (set! *log-always-fatal* fatal-mask)
+      (mutex-unlock *messages-lock*)
+      old-mask)))
+
+;; 750: g_log_set_fatal_mask
+(define (log-set-fatal-mask _log_domain _fatal_mask)
+  (let ((log-domain (or _log_domain ""))
+	(fatal-mask (logand (logior _fatal_mask LOG_LEVEL_ERROR)
+			    (lognot-uint16 LOG_FLAG_FATAL))))
+    (mutex-lock *messages-lock*)
+    (let* ((domain (or (log-find-domain-L log-domain)
+		      (log-domain-new-L log-domain)))
+	   (old-flags (domain:fatal-mask domain)))
+      (domain:set-fatal-mask! domain fatal-mask)
+      (log-domain-check-free-L domain)
+      (mutex-unlock *messages-lock*)
+      old-flags)))
+
+;; 780: g_log_set_handler
+(define (log-set-handler log-domain log-levels log-func)
+  "Assign a new handler for a given domain and log level mask."
+  (log-set-handler-full log-domain log-levels log-func #f))
+
+;; 854: g_log_set_handler_full
+(define (log-set-handler-full _log_domain log-levels log-func destroy)
+  "Assign a new handler for a given domain and log level mask."
+  (when (and (not (zero? (logand log-levels LOG_LEVEL_MASK)))
+	     (procedure? log-func))
+    
+    (mutex-lock *messages-lock*)
+    (set! *handler-id* (1+ *handler-id*))
+    
+    (let* ((log-domain (if (and _log_domain (not (string-null? _log_domain)))
+			   (string-copy _log_domain)
+			   ""))
+	   (domain (or (log-find-domain-L log-domain)
+		       (log-domain-new-L log-domain)))
+	   (handler (make-log-handler *handler-id*
+				      log-levels
+				      log-func
+				      destroy)))
+      (domain:set-handlers! (list handler))
+      (mutex-unlock *messages-lock*)
+      ;; and return the unique ID
+      (handler:id handler))))
+
+;; 909: g_log_set_default_handler
+(define (log-set-default-handler log-func)
+  "Assign log-func as the default log handler function for non-fatal
+cases."
+  (mutex-lock *messages-lock*)
+  (let ((old-log-func *default-log-func*))
+    (set! *default-log-func* log-func)
+    (mutex-unlock *messages-lock*)
+    old-log-func))
+
+;; 953: g_test_log_set_fatal_handler
+(define (log-set-default-handler log-func)
+  "Assign log-func as the default log handler function for fatal
+cases."
+  (mutex-lock *messages-lock*)
+  (set! *fatal-log-func* log-func)
+  (mutex-unlock *messages-lock*)
+  *unspecified*)
+
+
+;; 973: g_log_remove_handler
+(define (log-remove-handler _log_domain handler-id)
+  (when (> handler-id 0)
+    (let ((log-domain (or (and _log_domain (not (string-null? _log_domain)))
+			  "")))
+      (mutex-lock *messages-lock*)
+      (let ((domain (log-find-domain-L log-domain)))
+	(
+	 ;; HEREIAM:
+    
+
 (define (log-level->port log-level)
   (if (logtest log-level
 	       (logior LOG_LEVEL_ERROR
@@ -77,33 +233,7 @@
       (current-error-port)
       (current-output-port)))
 
-;; 603: g_log_find_domain_L
-(define (log-find-domain-L log-domain)
-  (if (null? *log-domains*)
-      #f
-      (let loop ((cur (car *log-domains*))
-		 (rest (cdr *log-domains*)))
-	(cond
-	 ((equal? log-domain (domain:log-domain cur))
-	  cur)
-	 ((null? rest)
-	  #f)
-	 (else
-	  (loop (car rest) (cdr rest)))))))
 
-;; 618: g_log_domain_new_L
-(define (log-domain-new-L log-domain)
-  (if (not (log-find-domain-L log-domain))
-      (set! *log-domains*
-	(append *log-domains*
-		(list (make-log-domain log-domain LOG_FATAL_MASK #f))))))
-
-;; 663: g_log_domain_get_handler_L
-(define (log-domain-get-handler-L domain log-level)
-  (when (and domain log-level (not (zero? log-level)))
-    ;;; HEREIAM: note that a single log domain may have multiple handlers
-    ;; for multiple log levels
-    
 
 ;; 1151: mklevel_prefix
 (define (mklevel-prefix log-level use-color?)
