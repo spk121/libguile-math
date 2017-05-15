@@ -11,9 +11,10 @@
   #:use-module (mlg strings)
   #:use-module (mlg port)
   #:use-module (mlg debug)
-  #:use-module (mlg address)
+  #:use-module (mlg ed address)
   #:use-module (mlg ed bmark)
-  #:use-module (mgl ed regex)
+  #:use-module (mlg ed regex)
+  #:use-module (mlg ed ops)
   #:export ())
 
 ;; "static buffers"
@@ -21,8 +22,9 @@
 (define old-filename "")		; default filename
 (define shcmd "")			; last executed shell command
 ;; "global buffers"
-(define ibuf (make-string 0))		; ed command-line buffer
-(define ibufp (open-input-string ibuf)) ; a port to handle the command line buf
+;;(define ibuf (make-string 0))		; ed command-line buffer
+;;(define ibufp (open-input-string ibuf)) ; a port to handle the command line buf
+(define cbuf #f)
 
 ;; global flags
 (define garrulous #f)			; if set, print all error messages
@@ -62,7 +64,6 @@
 
 (define (seterrmsg msg)
   "Set the text of error messages to be printed."
-  (pk 'seterrmsg msg)
   (set! errmsg msg))
 
 (define (main args)
@@ -128,27 +129,34 @@
     (bmark-set-default-cbuf cbuf)
     (regex-set-default-cbuf cbuf)
     
-    
     ;; This is the main loop
     (while #t
-      (when (and (< status 0) garrulous)
+      (when (and (or (not status) (< status 0)) garrulous)
 	(format-error "~a~%" errmsg))
       (if verbose
 	  (%dump-cbuffer cbuf))
       (when prompt-active (display prompt))
       (force-output)
 
-      
       ;; This is input is parsed and commands are run
       (let ((line-cur (get-line-cur cbuf))
-	    (line-last (max 0 (1- (get-line-count cbuf)))))
-	(let ((addr-range (addr-get-range port line-cur line-last
+	    (line-last (max 0 (1- (get-line-count cbuf))))
+	    (port (open-input-string (read-line (current-input-port)))))
+	(let ((addr-range (addr-get-range port
+					  line-cur line-last
 					  bmark-default-cb regex-default-cb)))
 	  (when (not addr-range)
 	    (seterrmsg (addr-get-range-error))
 	    (set! status ERR)
 	    (continue))
-	  (dispatch cbuf current-input-port addr-range bmark-default-cb regex-default-cb)
+	  (set! status
+	    (op-dispatch cbuf port addr-range line-cur line-last
+		       bmark-default-cb regex-default-cb))
+
+	  ;; Read any unused character in this line
+	  (if (not (eof-object? (peek-char port)))
+	      (read-line (current-input-port))))))))
+    #|
       (let ((n (get-tty-line)))
 	(cond
 	 ((< n 0)
@@ -954,37 +962,6 @@ single period is read or EOF.  Return status."
     0)))
 
 
-
-(define (handle-hup signo)
-  (unless sigactive
-    (quit 1))				; signal race?
-  (set! sighup #f)
-  ;; Try to write the crash-out file here.  Or, failing that, in my
-  ;; home directory.
-  (if (and (not (zero? addr-last))
-	   (< (write-file "ed.hup" "1" 1 addr-last) 0)
-	   (not (string-null? home))
-	   (string-starts-with? home #\/))
-      (write-file (string-append home "/ed.hup") "w" 1 addr-last))
-  (primitive-_exit 2))
-
-(define (handle-int signo)
-  (unless sigactive
-    (primitive-_exit 1))
-  (set! sigint #f)
-  ;; FIXME, here I somehow jump to the top of the main loop
-  (throw 'interrupt))
-
-(define (signal-int signo)
-  (if (> mutex 0)
-      (set! sigint #t)
-      (handle-int signo)))
-
-(define (signal-hup signo)
-  (if (> mutex 0)
-      (set! sighup #t)
-      (handle-hup signo)))
-
 ;; a (append) + suffix
 ;; c (change) + suffix
 ;; d (delete) + suffix
@@ -1014,11 +991,6 @@ single period is read or EOF.  Return status."
 ;; w (write) + blanks + filename-or-!
 ;; = (line-no) + suffix
 ;; ! (shell) + command
-
-(define (handle-winch signo)
-  ;; When there is a way to check TIOCGWINSZ,
-  ;; then set rows and cols here.
-  *unspecified* )
 
 (define (read-file fn n current-addr scripted)
   "Read a named file/pipe into the buffer.  Return line count."
@@ -1075,5 +1047,42 @@ single period is read or EOF.  Return status."
       (if (= n 0)
 	  0
 	  (+ m (- n) 1))))))
+|#
+
+(define (handle-winch signo)
+  ;; When there is a way to check TIOCGWINSZ,
+  ;; then set rows and cols here.
+  *unspecified* )
+
+
+(define (handle-hup signo)
+  (unless sigactive
+    (quit 1))				; signal race?
+  (set! sighup #f)
+  ;; Try to write the crash-out file here.  Or, failing that, in my
+  ;; home directory.
+  (if (and (not (zero? addr-last))
+	   (< (write-file "ed.hup" "1" 1 addr-last) 0)
+	   (not (string-null? home))
+	   (string-starts-with? home #\/))
+      (write-file (string-append home "/ed.hup") "w" 1 addr-last))
+  (primitive-_exit 2))
+
+(define (handle-int signo)
+  (unless sigactive
+    (primitive-_exit 1))
+  (set! sigint #f)
+  ;; FIXME, here I somehow jump to the top of the main loop
+  (throw 'interrupt))
+
+(define (signal-int signo)
+  (if (> mutex 0)
+      (set! sigint #t)
+      (handle-int signo)))
+
+(define (signal-hup signo)
+  (if (> mutex 0)
+      (set! sighup #t)
+      (handle-hup signo)))
 
 (main (command-line))
