@@ -103,7 +103,8 @@
 
     ;; FIXME: this is where we make an empty buffer
     ;; (init-buffers)
-    (setvbuf (current-input-port) _IONBF)
+    (when (file-port? (current-input-port))
+      (setvbuf (current-input-port) _IONBF))
     (set! cbuf (make-empty-cbuffer))
 
     ;; Enable signal handlers
@@ -151,7 +152,7 @@
 	    (continue))
 	  (set! status
 	    (op-dispatch cbuf port addr-range line-cur line-last
-		       bmark-default-cb regex-default-cb))
+			 bmark-default-cb regex-default-cb))
 
 	  ;; Read any unused character in this line
 	  (if (not (eof-object? (peek-char port)))

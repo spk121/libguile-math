@@ -1,0 +1,102 @@
+(mlg logging)
+
+This is a library that implements logging similar to that
+provided by Gnome's Glib library.
+
+There is a family of macros that are to be used for programming
+errors, such as checking for invalid parameters at the beginning of a
+public function.
+
+- return-if-fail
+- return-val-if-fail
+- return-if-reached
+- return-val-if-reached
+
+There are some convenience macros for logging at different levels.
+
+- log-info
+- log-message
+- log-debug
+- log-warning
+- log-error
+
+STRUCTURED LOGGING
+
+The low-level logging functions are 'log-structured' and
+'log-structured-array'.  Each log message is a set of key/value
+pairs.  There are some keys that are common across log messages.
+But, when log-structured is used, any key/value pair can be added.
+
+Keys must be only ASCII uppercase letters, digits, hyphen and
+underscore. It must begin with an uppercase letter, end with an
+uppercase letter or digit, and may not have more than one hyphen or
+underscore in a row.
+
+Values are either strings or bytevectors.
+
+- "MESSAGE_ID"
+- "PRIORITY" - a string from "1" to "8" that represents a log level
+- "CODE_FILE"
+- "CODE_LINE"
+- "CODE_FUNC"
+- "ERRNO"
+- "PID"
+- "MESSAGE"
+
+These log-warning family of convenience macros are wrappers around
+'log-structured' and 'log-structured-array'.
+
+- log-structured
+- log-structured-array
+
+The goal for structured logging is to always save all warnings and
+errors.  It is the job of the log viewer to subsample them.
+
+Internally %log calls logv which probably calls log-default-handler
+which calls log-structured-array.  log-structured-array probably calls
+*log-writer-func*, which is probably log-writer-default which calls
+one of log-writer-journald or log-writer-standard-streams.
+
+log-writer-standard-streams writes a human-readable error message.
+
+LOG WRITERS
+
+Eventually, the library should support three type of log writers.
+
+log-writer-standard-streams: Default loggers write messages to a port
+which is usually just stderr or stdout.  They only write information
+from a few default keys in a human readable format.  Typically just
+"DOMAIN", "PRIORITY", "MESSAGE", and maybe "CODE_FILE", "CODE_LINE",
+and "CODE_FUNC" are used in the construction of the message.
+
+log-writer-sxml: The SXML logger writes all of the log message
+key/value pairs in a SXML format.
+
+log-writer-journald: The systemd journal logger writes the log
+messages to the systemd journal.
+
+LOG DOMAINS
+
+Log domains are used to broadly split up the origins of log messages.
+Typically there are only one or a few log domains per application or
+library.  A log domain is a string, usually named after the
+application or library.
+
+- set-log-domain
+- get-log-domain
+- with-log-domain
+
+DEBUG MESSAGE OUTPUT
+
+By default, all warnings, critical warnings, and errors are always
+logged.  All debug and informational messages are dropped by default.
+If you want to log debug and informational messages, you should set
+the MESSAGES_DEBUG environment variable string to contain the desired
+log domain string.  MESSAGES_DEBUG can contain any number of log
+domains.  If it contains the word "all", it will print all debug and
+informational messages.
+
+COLOR
+
+When using log-writer-standard-streams, color will be activated if
+the TERM environment variable supports ansi colors.

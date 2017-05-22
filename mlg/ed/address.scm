@@ -4,6 +4,8 @@
   #:use-module (oop goops describe)
   #:use-module (mlg port)
   #:use-module (mlg characters)
+  #:use-module (mlg logging)
+  #:use-module (mlg typechecking)
   #:export (addr-get-range
 	    addr-get-range-error))
 
@@ -12,13 +14,28 @@
 (define (addr-get-range-error)
   *compute-ed-address-error*)
 
-(define (addr-get-range port current-line last-line bmark-callback regex-callback)
+(define (addr-get-range port
+			current-line
+			last-line
+			bmark-callback
+			regex-callback)
+  (warn-if-false (input-port? port))
+  (warn-if-false (integer-nonnegative? current-line))
+  (warn-if-false (integer-nonnegative? last-line))
+  
   (set! *compute-ed-address-error* "")
   (take-up-to-two-right
-   (compute-ed-address
-    (parse-ed-address port) current-line last-line bmark-callback regex-callback)))
+   (compute-ed-address (parse-ed-address port)
+		       current-line
+		       last-line
+		       bmark-callback
+		       regex-callback)))
 
-(define (compute-ed-address _tokens current-line last-line bmark-callback regex-callback)
+(define (compute-ed-address _tokens
+			    current-line
+			    last-line
+			    bmark-callback
+			    regex-callback)
   "Convert the address token list into a list of line numbers.
 
 bmark-callback is a lambda that takes a single char and returns a
@@ -197,6 +214,8 @@ used should be reapplied."
       (+ a b c)))
 
 (define (take-up-to-two-right lst)
+  (warn-if-false (list? lst))
+  
   (if (>= (length lst) 2)
       (take-right lst 2)
       lst))
@@ -204,6 +223,10 @@ used should be reapplied."
 (define (last-two-list-elements-in-range? lst low high)
   "Return #t if the last two elements in the list, if present, are
 between low (inclusive) and high (inclusive)"
+  (warn-if-false (list? lst))
+  (warn-if-false (integer-nonnegative? low))
+  (warn-if-false (integer-nonnegative? high))
+  
   (let ((sublist (take-up-to-two-right lst)))
     (every (lambda (x)
 	     (and (integer? x) (<= low x) (<= x high)))

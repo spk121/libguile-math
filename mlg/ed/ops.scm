@@ -1,10 +1,20 @@
 (define-module (mlg ed ops)
+  #:use-module (ice-9 rdelim)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-2)
+  #:use-module (mlg logging)
   #:use-module (mlg port)
   #:use-module (mlg procedure)
+  #:use-module (mlg strings)
+  #:use-module (mlg typechecking)
+  #:use-module (gano CBuffer)
   #:export (op-get-dispatch-error
 	    op-dispatch))
+
+(define EOF -1)
+(define ERR -2)
+(define EMOD -3)
+(define FATAL -4)
 
 (define *op-dispatch-error* "")
 
@@ -13,8 +23,71 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define op-append ...)
-(define op-change ...)
+(define (op-append cbuf addr special suffix append)
+  "Appends lines after the given address."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (list-length-1? addr))
+  (warn-if-false (list-of-integers? addr))
+  (warn-if-false (list-of-strings? append))
+  (warn-if-false (string? suffix))
+  
+  (ed-append cbuf (first addr) append)
+  
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
+  0)
+
+(define (op-change cbuf addr special suffix append)
+  "Appends lines after the given address."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (list-length-2? addr))
+  (warn-if-false (list-of-integers? addr))
+  (warn-if-false (list-of-strings? append))
+  (warn-if-false (string? suffix))
+  (log-debug-locals)
+  
+  (ed-change cbuf (max 0 (1- (first addr))) (second addr) append)
+  
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
+  0)
+
+(define (put-tty-line str n suffix)
+  "Print text to stdout."
+  (warn-if-false (string? str))
+  (warn-if-false (integer? n))
+  (warn-if-false (string? suffix))
+  
+  (if (member #\n (string->list suffix))
+      (format #t "~d~/" n))
+  (if (member #\l (string->list suffix))
+      (format #t "~a$~%" (string->ed-escaped-string str))
+      (format #t "~a~%" str)))
+
+(define (display-lines cbuf from to suffix)
+  "Print a range of lines to stdout."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (integer-nonnegative? from))
+  (warn-if-false (integer-nonnegative? to))
+  (warn-if-false (<= from to))
+  (warn-if-false (string? suffix))
+  
+  (cond
+   ((or (zero? from) (zero? to))
+    (set! *op-dispatch-error* "invalid address")
+    (log-debug "address (~a,~a) <= 0" from to)
+    ERR)
+   (else
+    (do ((i from (1+ i)))
+	((>= i to))
+      (put-tty-line (get-text-line cbuf (1- i)) i suffix))
+    0)))
+
+
 (define op-delete ...)
 (define op-edit ...)
 (define op-edit-without-checking ...)
@@ -95,13 +168,15 @@
 (define (op-dispatch cbuf port
 		     addr-list addr-cur addr-last
 		     bmark-callback regex-callback)
-  (and-let* ((c (peek-char-safe port))
-	     (op (%op-key c))
-	     (addr (%op-addr op addr-list addr-cur addr-last))
-	     (special (%op-special 'fixme))
-	     (suffix (%op-suffix))
-	     (append (%op-append)))
-    ((dispatch:op c) addr special suffix append)))
+  (log-debug-locals)
+  (and-let* ((c (log-debug-pk (read-char port)))
+	     (op (log-debug-pk (%op-key c)))
+	     (addr (log-debug-pk (%op-addr op addr-list addr-cur addr-last)))
+	     (special (log-debug-pk (%op-special port (dispatch:parser op))))
+	     (suffix (log-debug-pk (%op-suffix port)))
+	     (append (%op-append port)))
+    
+    ((dispatch:op op) cbuf addr special suffix append)))
 
 (define (%op-key c)
   (let ((op (assoc c dispatch-table)))
@@ -157,7 +232,7 @@
 	       #f))))
 	addr)))))
 
-(define (%op-special parser)
+(define (%op-special port parser)
   "Some commands require parsing of addition information on the command-line
 after the command character."
   (cond
@@ -170,7 +245,6 @@ after the command character."
     (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
     #f)
    ((eqv? parser 'address)
-    (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
     #f)
    ((eqv? parser 'regex)
     (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
@@ -187,14 +261,32 @@ after the command character."
     (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
     #f)))
 
-(define (%op-suffix)
+(define (%op-suffix port)
   "Some commands allow 'l' 'n' or 'p' afterward to print a result."
-  "")
+  (let loop ((ret (peek-char-safe port))
+	     (out ""))
+    (if (member ret (string->list "lnp"))
+	(begin
+	  (read-char port)
+	  (loop (peek-char-safe port) (string-append out (string ret))))
+	;; else
+	out)))
 
-(define (%op-append)
+(define (%op-append port)
   "Some commands allow the entry of text lines, ended by entering
 a single '.' on its own line"
-  "")
+  ;; (drain-input port)
+  (let loop ((out '())
+	     (line (read-line (current-input-port))))
+    (log-debug-locals)
+    (cond
+     ((eof-object? line)
+      out)
+     ((string=? line ".")
+      out)
+     (else
+      (loop (append out (list line))
+	    (read-line (current-input-port)))))))
 
 (define (convert-default-addr sym line-cur line-last)
   (cond

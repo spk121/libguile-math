@@ -1,10 +1,13 @@
 (define-module (mlg utils)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 rdelim)
-  #:export (build-filename
+  #:export (get-prgname
+	    get-user-name
+
+	    ;; File utils
+	    build-filename
 	    get-home-dir
 	    get-tmp-dir
-	    get-user-name
 	    get-user-data-dir
 	    get-user-config-dir
 	    get-user-cache-dir
@@ -139,6 +142,10 @@ in FILENAME"
 	  tmpdir-env
 	  ;; else
 	  "/tmp")))))
+
+(define (get-prgname)
+  "Returns the name of the program."
+  (car (command-line)))
 
 (define (get-user-name)
   "Return the username of the current user."
