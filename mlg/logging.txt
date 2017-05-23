@@ -100,3 +100,12 @@ COLOR
 
 When using log-writer-standard-streams, color will be activated if
 the TERM environment variable supports ansi colors.
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(warn-if-false x)
+Returns x.  If x is #f, logs a critical error.
+
+(return-val-if-false expr val)
+If expr is #f, retur
