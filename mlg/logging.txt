@@ -1,53 +1,202 @@
 (mlg logging)
 
-This is a library that implements logging similar to that
-provided by Gnome's Glib library.
+This is a library that implements logging similar to that provided by
+Gnome's Glib library.
+
+INITIALIZATION
+
+To use logging, use the (mlg logging) module.  When initializing
+logging you may want to set a DOMAIN string.  You may want to chose to
+not ignore debug messages by setting the MESSAGES_DEBUG environment
+variable. You need to decide between logging to stderr or logging to
+the systemd journal.  And you may want to disable color messages.
+
+So first, at inititialization, you can optionally set the DOMAIN,
+which is a string which is usually the program name or library name
+for the log messages that follow.
+
+- (set-log-domain str)
+
+        Sets the log domain for the messages that follow.
+
+- (get-log-domain)
+
+        Retrieves the current log domain.
+
+Most (mlg logging) messages have a priority value which is one of
+LOG_LEVEL_ERROR, LOG_LEVEL_CRITICAL, LOG_LEVEL_WARNING,
+LOG_LEVEL_MESSAGE, LOG_LEVEL_INFO, and LOG_LEVEL_DEBUG.  Note that, by
+default, LOG_LEVEL_INFO and LOG_LEVEL_DEBUG messages are *not*
+logged and are silently dropped.
+
+- The MESSAGES_DEBUG environment variable
+
+        To have LOG_LEVEL_INFO, and LOG_LEVEL_DEBUG messages actually
+        be logged, you should set the MESSAGES_DEBUG environment
+        variable to contain your DOMAIN, as set by the
+        'set-log-domain' procedure.  If you set the MESSAGES_DEBUG
+        environment variable to "all", it will log all messages from
+        all domains.
+
+At initialization, you should choose which type of log writer you want
+to use for your domain.  By default, log messages are sent to the
+current error port.  Two log writers are included by default.
+
+- (log-writer-standard-streams log-level fields-alist)
+
+        Writes log messages to the current error port. If the
+	LOG_LEVEL_INFO and LOG_LEVEL_DEBUG messages are being printed
+	because the MESSAGES_DEBUG environment variable is set, those
+	messages are sent to the current output port.
+
+- (log-writer-journal log-level fields-alist)
+
+        Writes log messages to the systemd journal.
+
+You can switch between the two by calling log-set-default-handler.
+
+- (log-set-default-writer proc)
+
+        PROC is a procedure which that expects two variables: a log-level
+	integer and an alist of key/value pairs.  All following
+	log messages will be logged using that procedure.
+
+	As a special case, if PROC is the symbol 'standard,
+	log-writer-standard-streams will be used.  If PROC is the
+	symbol 'journal, log-writer-journal will be used.
+
+When logging to the standard streams, log messages will be colorized
+if the TERM environment variable is set to a terminal that can handle
+ANSI color escape sequences, and we're not running in a REPL.  To
+enable/disable color, the following procedure can be used.
+
+- (log-enable-color bool)
+
+        Given BOOL, which is #t or #f, enable or disable color when
+	logging to the standard streams.
+
+GENERAL LOGGING
+
+There are some procedures for logging at different levels.
+
+- (log-info msg ...)
+- (log-message msg ...)
+- (log-debug msg ...)
+- (log-warning msg ...)
+- (log-error msg ...)
+
+Each of these takes a string message which may contain (ice-9 format)
+escapes like '~a' and '~s'.  If there are additional parameters given,
+it will merge them with message using format.
+
+PROGRAMMING ERROR PROCEDURES
 
 There is a family of macros that are to be used for programming
 errors, such as checking for invalid parameters at the beginning of a
 public function.
 
-- return-if-fail
-- return-val-if-fail
-- return-if-reached
-- return-val-if-reached
+- (warn-if-false expression)
 
-There are some convenience macros for logging at different levels.
+        If expression is false, log a critical error.
 
-- log-info
-- log-message
-- log-debug
-- log-warning
-- log-error
+        The procedure returns the value of expression, so that it can
+        be used inline with other code.
+
+- (warn-val-if-false expression val)
+
+        If expression is false, log a critical error logging the value
+	of val.
+
+        The return value is unspecified.
+
+- (warn-if-used expression)
+
+        If the procedure is evaluated, log a critical error.
+
+        The procedure returns the value of expression, so that it can
+        be used inline.
+
+- (warn-if-reached)
+
+       If the thunk is evaluated, log a critical error.
+
+       The return value is unspecified.
+
+DEBUG LOGGING
+
+Here are some debugging procedures.  Remember that debug-level
+messages are only printed if the MESSAGES_DEBUG environment variable
+has been set to include the current domain, or "all".
+
+- (log-debug-pk val1 ...)
+
+        Logs a debug-level message that prints all the parameters.
+
+- (log-debug-locals)
+
+        Logs a debug-level message that prints all of the current
+	local variables on the stack.
+	
+- (log-debug-here)
+
+        Logs a debug-level message that just prints this location
+	and the current timestamp.
 
 STRUCTURED LOGGING
 
 The low-level logging functions are 'log-structured' and
-'log-structured-array'.  Each log message is a set of key/value
-pairs.  There are some keys that are common across log messages.
-But, when log-structured is used, any key/value pair can be added.
+'log-structured-array'.  They expect log information as a set of
+key/value pairs.  There are some keys that are common across log
+messages.  But, when log-structured is used, any key/value pair can be
+added.
 
-Keys must be only ASCII uppercase letters, digits, hyphen and
-underscore. It must begin with an uppercase letter, end with an
-uppercase letter or digit, and may not have more than one hyphen or
-underscore in a row.
+Keys are strings that must be only ASCII uppercase letters, digits,
+hyphen and underscore. It must begin with an uppercase letter.
 
 Values are either strings or bytevectors.
 
-- "MESSAGE_ID"
-- "PRIORITY" - a string from "1" to "8" that represents a log level
+A log message can include any number of key/value pairs, but, some
+common keys one might like to include are
+
+- "DOMAIN" - a string that identifies the system or subsystem for
+        the message.  It is usually a program name or library name.
+
+- "MESSAGE_ID" - a 128-bit lower-case hexadecimal string that
+        identifies a specific message.  It is used by systemd journal
+        for sorting and grouping all messages with the same ID.
+	
+- "PRIORITY" - a string consisting if a single digit that indicates
+        the priority for this message: "0" for emergency, "1" for alert,
+	"2" for critical error, "3" for error, "4" for warning, "5"
+	for notice, "6" for infomation message, and "7" for debug
+	messages.
+	
+- "MESSAGE" - the human-readable message string, which is the primary
+        text of the log entry.
+
 - "CODE_FILE"
 - "CODE_LINE"
 - "CODE_FUNC"
 - "ERRNO"
 - "PID"
-- "MESSAGE"
 
 These log-warning family of convenience macros are wrappers around
 'log-structured' and 'log-structured-array'.
 
-- log-structured
-- log-structured-array
+- (log-structured domain log-level key1 value1 ...)
+
+        Logs an message that includes one or more key/value
+        pairs.  The 'domain' variable is either a string, a
+        bytevector, or #f, and it will be added as a DOMAIN key, which
+        identifies the program or library that is the source of the
+        message. The log-level is an integer which is one of
+	LOG_LEVEL_ERROR, LOG_LEVEL_CRITICAL, LOG_LEVEL_WARNING,
+	LOG_LEVEL_MESSAGE, LOG_LEVEL_INFO or LOG_LEVEL_DEBUG.
+
+- (log-structured-array log-level alist)
+
+        Logs a message of one or more key/value pairs.  The key/value
+	pairs passed in via an association list.
 
 The goal for structured logging is to always save all warnings and
 errors.  It is the job of the log viewer to subsample them.
@@ -59,53 +208,3 @@ one of log-writer-journald or log-writer-standard-streams.
 
 log-writer-standard-streams writes a human-readable error message.
 
-LOG WRITERS
-
-Eventually, the library should support three type of log writers.
-
-log-writer-standard-streams: Default loggers write messages to a port
-which is usually just stderr or stdout.  They only write information
-from a few default keys in a human readable format.  Typically just
-"DOMAIN", "PRIORITY", "MESSAGE", and maybe "CODE_FILE", "CODE_LINE",
-and "CODE_FUNC" are used in the construction of the message.
-
-log-writer-sxml: The SXML logger writes all of the log message
-key/value pairs in a SXML format.
-
-log-writer-journald: The systemd journal logger writes the log
-messages to the systemd journal.
-
-LOG DOMAINS
-
-Log domains are used to broadly split up the origins of log messages.
-Typically there are only one or a few log domains per application or
-library.  A log domain is a string, usually named after the
-application or library.
-
-- set-log-domain
-- get-log-domain
-- with-log-domain
-
-DEBUG MESSAGE OUTPUT
-
-By default, all warnings, critical warnings, and errors are always
-logged.  All debug and informational messages are dropped by default.
-If you want to log debug and informational messages, you should set
-the MESSAGES_DEBUG environment variable string to contain the desired
-log domain string.  MESSAGES_DEBUG can contain any number of log
-domains.  If it contains the word "all", it will print all debug and
-informational messages.
-
-COLOR
-
-When using log-writer-standard-streams, color will be activated if
-the TERM environment variable supports ansi colors.
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(warn-if-false x)
-Returns x.  If x is #f, logs a critical error.
-
-(return-val-if-false expr val)
-If expr is #f, retur
