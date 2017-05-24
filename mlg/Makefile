@@ -4,10 +4,17 @@ C_OBJ := $(patsubst %.c,%.o,$(C_SRC))
 CFLAGS = -g -Wall `pkg-config --cflags guile-2.0 libsystemd` -fpic
 LIBS = `pkg-config --libs guile-2.0 libsystemd`
 
-all: libguile-mlg.so ed.go
+all: libguile-mlg.so ed.go logging.go
 
 libguile-mlg.so: $(C_OBJ)
 	$(CC) -shared -o $@ $^ $(LIBS)
+
+logging.go: logging.scm
+	unset GUILE_LOAD_COMPILED_PATH ; \
+	LC_ALL=C \
+	guild compile \
+	  -L .. -L ../../gano-gano/newsrc \
+	  -Wformat -Wunbound-variable -Warity-mismatch -o "$@" "$<"
 
 ed.go: ed.scm
 	unset GUILE_LOAD_COMPILED_PATH ; \

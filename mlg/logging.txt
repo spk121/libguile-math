@@ -137,10 +137,10 @@ has been set to include the current domain, or "all".
         Logs a debug-level message that prints all of the current
 	local variables on the stack.
 	
-- (log-debug-here)
+- (log-debug-time)
 
-        Logs a debug-level message that just prints this location
-	and the current timestamp.
+        Logs a debug-level message that just prints the current
+        execution time.
 
 STRUCTURED LOGGING
 

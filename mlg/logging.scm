@@ -1,8 +1,10 @@
 (define-module (mlg logging)
+  #:use-module (ice-9 format)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (system repl repl)
   #:use-module (system repl debug)
+  #:use-module (system vm frame)
   #:use-module (rnrs bytevectors)
   #:use-module (rnrs io ports)
   #:use-module (mlg assert)
@@ -10,7 +12,13 @@
   #:use-module (mlg time)
   #:use-module (mlg utils)
   #:use-module (mlg journal)
-  #:export(set-log-domain
+  #:export(
+	   __FILE__
+	   __LINE__
+	   __FUNC__
+	   __LOCALS__
+
+	   set-log-domain
 	   get-log-domain
 	   log-set-default-writer
 	   log-enable-color
@@ -33,9 +41,7 @@
 
 	   log-debug-locals
 	   log-debug-pk
-	   log-debug-here
-
-	   
+	   log-debug-time
 	   ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -61,7 +67,9 @@
 (define-syntax __FILE__
   (syntax-rules ()
     ((_)
-     (or (assv-ref (current-source-location) 'filename)
+     (if (assv-ref (current-source-location) 'filename)
+	 (basename (assv-ref (current-source-location) 'filename))
+	 ;; else
 	 "(unknown file)"))))
 
 (define-syntax __LINE__
@@ -78,8 +86,14 @@
 	 (cond
 	  ((and (frame-procedure (vector-ref stk i))
 		(procedure-name (frame-procedure (vector-ref stk i))))
-	   (symbol->string
-	    (procedure-name (frame-procedure (vector-ref stk i)))))
+	   (let ((pname (procedure-name (frame-procedure (vector-ref stk i)))))
+	     (cond
+	      ((eqv? pname '%start-stack)
+	       "(top level)")
+	      ((eqv? pname 'save-module-excursion)
+	       "(top level)")
+	      (else
+	       (symbol->string pname)))))
 	  ((< i (vector-length stk))
 	   (loop (1+ i)))
 	  (else
@@ -92,19 +106,44 @@
        (if loc
 	   (number->string loc)
 	   "(unknown line)")))))
+#|
+(define* (stringify-local-vars frame #:key (width 158) (per-line-prefix "  "))
+  (let ((bindings (frame-bindings frame)))
+    (cond
+     ((null? bindings)
+      (format #f "~aNo local variables.~%" per-line-prefix))
+     (else
+      (apply string-append 
+	     (map
+	      (lambda (binding)
+		(format #f "~a~a = ~v:@y~%"
+			per-line-prefix
+			(binding-name binding)
+			width
+			(binding-ref binding)))
+	      (frame-bindings frame)))))))
+|#
 
 (define-syntax __LOCALS__
   (syntax-rules ()
     ((_)
-     (let ((stk (stack->vector (make-stack #t))))
+     (let ((stk (stack->vector (make-stack #t)))
+	   (out "...\n"))
        (let loop ((i 1))
 	 (let* ((frame (vector-ref stk i))
 		(name (and (frame-procedure frame) 
 			   (procedure-name (frame-procedure frame)))))
-	   (when name (display name) (newline))
-	   (print-locals frame)
+	   (set! out
+	     (string-append out
+			    (with-output-to-string
+			      (lambda ()
+				(print-locals frame
+					      #:width 160
+					      #:per-line-prefix "**   ")))))
 	   (if (and (not name) (< i (vector-length stk)))
-	       (loop (1+ i)))))))))
+	       (loop (1+ i))
+	       ;; else
+	       out)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; From glib-init.c
@@ -162,20 +201,24 @@
   LOG_DOMAIN)
 
 ;; gmessage.h: 246: G_DEBUG_HERE
-(define-syntax log-debug-here
+(define-syntax log-debug-locals
   (syntax-rules ()
-    ((_)
+    ((_ ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_DEBUG
 		     "CODE_FILE" (__FILE__)
 		     "CODE_LINE" (STRLOC)
 		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" "~a: ~a" (monotonic-time) (STRLOC)))))
+		     "MESSAGE" (__LOCALS__)))))
 
-(define-syntax log-debug-locals
+(define-syntax log-debug-time
   (syntax-rules ()
-    ((_)
-     (__LOCALS__))))
-
+    ((_ ...)
+     (log-structured LOG_DOMAIN LOG_LEVEL_DEBUG
+		     "CODE_FILE" (__FILE__)
+		     "CODE_LINE" (STRLOC)
+		     "CODE_FUNC" (__FUNC__)
+		     "MESSAGE" "Time is ~6,5f"
+		     (* 1e-6 (- (monotonic-time) *log-start-time*))))))
 
 ;; gmessages.h: 285: g_error
 (define-syntax log-error
@@ -357,6 +400,7 @@
 (define *fatal-log-func* #f)
 (define *log-writer-func* #f)
 (define *log-enable-color* #t)
+(define *log-start-time* #f)
 
 (define (%dump-log-globals)
   (format #t "log-depth: ~a~%" (fluid-ref *log-depth*))
@@ -521,8 +565,8 @@ the systemd journal writer will be used."
    ((procedure? writer_func)
     (set! *log-writer-func* writer_func))
    (else
-    (set! *log-writer-func* log-writer-standard-streams))
-   (unlock-mutex *messages-lock*)))
+    (set! *log-writer-func* log-writer-standard-streams)))
+  (unlock-mutex *messages-lock*))
 
 (define (log-enable-color flag)
   "Given FLAG, which is #t or #f, this enables or disable colorization
@@ -860,7 +904,7 @@ will be merged into a single string using (format #f param1 param2 ...)"
 			    fields-alist)))))
 
 ;; 2358: g_log_writer_journald
-(define (log-writer-journald log-level fields-alist)
+(define (log-writer-journal log-level fields-alist)
   "This would send the alist of fields to the journal using the
 sd_journal_send function.  The key is transformed to a string in the
 portable character set.  The val is transformed either into UTF-8 text
@@ -1418,7 +1462,7 @@ or, if it is a bytevector, into a binary blob."
 	;; We try to send to the journald first, or then fallback to the
 	;; standard streams.
 	(if (and (not (and (log-writer-is-journald? (fileno (current-error-port)))
-			   (log-writer-journald log-level fields-alist)))
+			   (log-writer-journal log-level fields-alist)))
 		 (not (log-writer-standard-streams log-level fields-alist)))
 	    ;; Looks like we failed to log anything normally, give up.
 	    #f
@@ -1500,6 +1544,7 @@ the current error or output port."
 			  LOG_LEVEL_DEBUG))
   
   ;; glib-init.c:86 g_log_always_fatal
-  (set! *log-always-fatal* LOG_FATAL_MASK))
+  (set! *log-always-fatal* LOG_FATAL_MASK)
+  (set! *log-start-time* (monotonic-time)))
 
 (logging-init)

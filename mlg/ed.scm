@@ -4,7 +4,6 @@
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 popen)
   #:use-module (gano CBuffer)
-  #:use-module (ryu core)
   #:use-module (mlg utils)
   #:use-module (mlg re)
   #:use-module (mlg buf)
@@ -27,7 +26,7 @@
 (define cbuf #f)
 
 ;; global flags
-(define garrulous #f)			; if set, print all error messages
+(define garrulous #t)			; if set, print all error messages
 (define isglobal #f)			; if set, doing a global command
 (define modified #f)			; if set, buffer modified since last write
 (define scripted #f)			; if set, suppress diagnostics
@@ -75,7 +74,7 @@
 
     (set! home (get-home-dir))
     
-    (set! prompt-string (option-ref options 'prompt "*"))
+    (set! prompt-string (option-ref options 'prompt #f))
     (set! scripted (option-ref options 'scripted #f))
 
     ;; If one of the remaining arguments is a sole hyphen,
@@ -136,12 +135,19 @@
 	(format-error "~a~%" errmsg))
       (if verbose
 	  (%dump-cbuffer cbuf))
-      (when prompt-active (display prompt))
+      (when prompt-active (display prompt-string))
       (force-output)
 
       ;; This is input is parsed and commands are run
-      (let ((line-cur (get-line-cur cbuf))
-	    (line-last (max 0 (1- (get-line-count cbuf))))
+      (let ((line-cur (if (zero? (get-line-count cbuf))
+				 0
+				 (1+ (get-line-cur cbuf))))
+					; Add one here because CBuffer
+					; line numbers are
+					; zero-indexed.
+	    (line-last (if (zero? (get-line-count cbuf))
+			   0
+			   (get-line-count cbuf)))
 	    (port (open-input-string (read-line (current-input-port)))))
 	(let ((addr-range (addr-get-range port
 					  line-cur line-last

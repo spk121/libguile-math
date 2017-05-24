@@ -30,7 +30,15 @@
   (warn-if-false (list-of-integers? addr))
   (warn-if-false (list-of-strings? append))
   (warn-if-false (string? suffix))
-  
+
+  ;; The CBuffer primitive ed-append inserts expects the line number
+  ;; where the insertions happens, and its line numbers are
+  ;; zero-indexed.
+
+  ;; Ed line numbers are 1-indexed and indicate the line after which
+  ;; the insertion occurs. Zero means before the first line.
+
+  ;; So in this case Ed address == CBuffer address
   (ed-append cbuf (first addr) append)
   
   (unless (string-null? suffix)
@@ -47,14 +55,70 @@
   (warn-if-false (list-of-strings? append))
   (warn-if-false (string? suffix))
   (log-debug-locals)
-  
-  (ed-change cbuf (max 0 (1- (first addr))) (second addr) append)
+
+  ;; Move the current position out of the way, for the moment.
+  (set-line-cur! cbuf 0)
+
+  ;; The CBuffer primitive wants the zero-indexed start line
+  ;; (inclusive) and zero-indexed end line (exclusive).
+
+  ;; The Ed address is a 1-indexed start line (inclusive) and a
+  ;; 1-indexed end line (inclusive). As an special case, zero is
+  ;; mapped to one.
+  (let ((start (1- (max 1 (first addr))))
+	(end (max 1 (second addr))))
+    (ed-change cbuf start end append))
   
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
     (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
   0)
+
+(define (op-delete cbuf addr special suffix append)
+  "Deletes the addressed lines from the buffer."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (list-length-2? addr))
+  (warn-if-false (list-of-integers? addr))
+  (warn-if-false (list-of-strings? append))
+  (warn-if-false (string? suffix))
+  (log-debug-locals)
+
+  ;; Move the current position out of the way, for the moment.
+  (set-line-cur! cbuf 0)
+
+  ;; The CBuffer primitive wants the zero-indexed start line
+  ;; (inclusive) and zero-indexed end line (exclusive).
+
+  ;; The Ed address is a 1-indexed start line (inclusive) and a
+  ;; 1-indexed end line (inclusive). An address of zero is invalid.
+  (let ((start (first addr))
+	(end (second addr)))
+    (cond
+     ((or (zero? start) (zero? end))
+      (set! *op-dispatch-error* "invalid address")
+      (log-debug "address (~a,~a) <= 0" start end)
+      ERR)
+     (else
+      (ed-delete cbuf (1- start) end))))
+  
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
+  0)
+
+(define (op-edit cbuf addr special suffix append)
+  "Deletes the entire contents of the buffer and read in the named
+file."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (list-length-2? addr))
+  (warn-if-false (list-of-integers? addr))
+  (warn-if-false (list-of-strings? append))
+  (warn-if-false (string? suffix))
+  (log-debug-locals)
+
+  (ed-delete cbuf (open-input-from-file special)))
 
 (define (put-tty-line str n suffix)
   "Print text to stdout."
@@ -88,8 +152,6 @@
     0)))
 
 
-(define op-delete ...)
-(define op-edit ...)
 (define op-edit-without-checking ...)
 (define op-filename ...)
 (define op-global ...)
@@ -168,15 +230,20 @@
 (define (op-dispatch cbuf port
 		     addr-list addr-cur addr-last
 		     bmark-callback regex-callback)
-  (log-debug-locals)
-  (and-let* ((c (log-debug-pk (read-char port)))
-	     (op (log-debug-pk (%op-key c)))
-	     (addr (log-debug-pk (%op-addr op addr-list addr-cur addr-last)))
-	     (special (log-debug-pk (%op-special port (dispatch:parser op))))
-	     (suffix (log-debug-pk (%op-suffix port)))
-	     (append (%op-append port)))
-    
-    ((dispatch:op op) cbuf addr special suffix append)))
+  (and-let* ((c (read-char port))
+	     (op (%op-key c))
+	     (addr (%op-addr op addr-list addr-cur addr-last))
+	     (special (%op-special port (dispatch:parser op)))
+	     (suffix (%op-suffix port))
+	     (append (if (dispatch:append? op)
+			 (%op-append port)
+			 '())))
+    (if (not addr)
+	(begin
+	  (set! *op-dispatch-error* (addr-get-range-error))
+	  ERR)
+	;; else
+	((dispatch:op op) cbuf addr special suffix append))))
 
 (define (%op-key c)
   (let ((op (assoc c dispatch-table)))
@@ -278,7 +345,6 @@ a single '.' on its own line"
   ;; (drain-input port)
   (let loop ((out '())
 	     (line (read-line (current-input-port))))
-    (log-debug-locals)
     (cond
      ((eof-object? line)
       out)

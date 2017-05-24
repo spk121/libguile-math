@@ -24,12 +24,14 @@
   (warn-if-false (integer-nonnegative? last-line))
   
   (set! *compute-ed-address-error* "")
-  (take-up-to-two-right
-   (compute-ed-address (parse-ed-address port)
-		       current-line
-		       last-line
-		       bmark-callback
-		       regex-callback)))
+  (let ((ret (compute-ed-address (parse-ed-address port)
+				 current-line
+				 last-line
+				 bmark-callback
+				 regex-callback)))
+    (if ret
+	(take-up-to-two-right ret)
+	#f)))
 
 (define (compute-ed-address _tokens
 			    current-line
@@ -201,7 +203,7 @@ used should be reapplied."
 		       0
 		       (read-ed-offset port)))
 	   (separator (read-ed-separator port)))
-      (pk addr offset separator)
+      ;;(pk addr offset separator)
       (if (eqv? separator 'null-separator)
 	  (append output (list addr offset separator))
 	  ;; else
