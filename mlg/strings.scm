@@ -1,6 +1,8 @@
 (define-module (mlg strings)
   #:use-module (mlg assert)
   #:export (string-ends-with?
+	    string->format-escaped-string
+	    string-ref-safe
 	    string-starts-with?
 	    string-strip-escapes
 	    string->ed-escaped-string))
@@ -13,6 +15,28 @@ is CHAR."
   (if (string-null? str)
       #f
       (char=? char (string-ref str (1- (string-length str))))))
+
+(define (string->format-escaped-string str)
+  "Return a new string that has (ice-9 format) codes escaped."
+  (string-fold
+   (lambda (c prev)
+     (cond
+      ((char=? c #\~)
+       (string-append prev (string #\~ #\~)))
+      (else
+       (string-append prev (string c)))))
+   ""
+   str))
+
+(define (string-ref-safe str i)
+  (if (or (not (string? str))
+	  (not (and (integer? i) (>= i 0))))
+      #\null
+      ;; else
+      (if (>= i (string-length str))
+	  #\null
+	  ;; else
+	  (string-ref str i))))
 
 (define (string-starts-with? str char)
   "Return #t is the first character in string STR

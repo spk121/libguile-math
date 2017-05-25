@@ -4,7 +4,8 @@
   #:use-module (mlg strings)
   #:use-module (mlg port)
   #:export (read-ed-filename
-	    get-read-ed-filename-err))
+	    get-read-ed-filename-err
+	    get-last-filename))
 
 (define *last-filename* "")
 
@@ -33,7 +34,7 @@ error."
 	(if (string-null? *last-filename*)
 	    (begin
 	      (set! *read-ed-filename-err* "missing filename")
-	      (unread-string port txt)
+	      (unread-string txt port)
 	      #f)
 	    ;; else
 	    *last-filename*)

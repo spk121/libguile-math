@@ -14,6 +14,7 @@
   #:use-module (mlg ed bmark)
   #:use-module (mlg ed regex)
   #:use-module (mlg ed ops)
+  #:use-module (mlg logging)
   #:export ())
 
 ;; "static buffers"
@@ -131,6 +132,7 @@
     
     ;; This is the main loop
     (while #t
+      (warn-if-false (not (eqv? status *unspecified*)))
       (when (and (or (not status) (< status 0)) garrulous)
 	(format-error "~a~%" errmsg))
       (if verbose

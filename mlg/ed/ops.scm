@@ -1,5 +1,6 @@
 (define-module (mlg ed ops)
   #:use-module (ice-9 rdelim)
+  #:use-module (ice-9 popen)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-2)
   #:use-module (mlg logging)
@@ -7,6 +8,8 @@
   #:use-module (mlg procedure)
   #:use-module (mlg strings)
   #:use-module (mlg typechecking)
+  #:use-module (mlg ed address)
+  #:use-module (mlg ed filename)
   #:use-module (gano CBuffer)
   #:export (op-get-dispatch-error
 	    op-dispatch))
@@ -20,6 +23,13 @@
 
 (define (op-get-dispatch-error)
   *op-dispatch-error*)
+
+(define-syntax set&get
+  (syntax-rules ()
+    ((_ var x)
+     (begin
+       (set! var x)
+       var))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -112,13 +122,20 @@
   "Deletes the entire contents of the buffer and read in the named
 file."
   (warn-if-false (cbuffer? cbuf))
-  (warn-if-false (list-length-2? addr))
-  (warn-if-false (list-of-integers? addr))
-  (warn-if-false (list-of-strings? append))
+  (warn-if-false (null? addr))
   (warn-if-false (string? suffix))
   (log-debug-locals)
+  (flush-all-ports)
 
-  (ed-delete cbuf (open-input-from-file special)))
+  (read-file cbuf special #f))
+
+(define (op-filename cbuf addr special suffix append)
+  "Return the remembered filename"
+  ;; Note that the act of the parsing of SPECIAL before calling
+  ;; op-filename is where the actual action is: it may update the
+  ;; currently remembered filename of one was given.
+  (format #t "Current filename is ~a~%" (get-last-filename))
+  0)
 
 (define (put-tty-line str n suffix)
   "Print text to stdout."
@@ -151,9 +168,37 @@ file."
       (put-tty-line (get-text-line cbuf (1- i)) i suffix))
     0)))
 
+(define (read-file cbuf fname scripted)
+  "Read a named file/pipe into the buffer.  Return line count."
+
+  ;; This whole function is a bit garbage, because they tried to hard
+  ;; to merge the popen and fopen into one path.
+  (let ((size 0)
+	(port 
+	 (if (string-starts-with? fname #\!)
+	     (open-input-pipe (string-drop fname 1))
+	     ;; else
+	     (false-if-exception (open-input-file (string-strip-escapes fname))))))
+    
+    (cond
+     ((not port)
+      (set! *op-dispatch-error* (format #f "cannot open input file: ~a" fname))
+      ERR)
+     ((< (set&get size (ed-edit cbuf port)) 0)
+      ERR)
+     ((if (char=? (string-ref-safe fname 0) #\!)
+	  (not (status:exit-val (close-pipe port)))
+	  ;; else
+	  (begin (close-input-port port) #t))
+      (set! *op-dispatch-error* (format #f "cannot close input file: ~a" fname))
+      ERR)
+     (else
+      (unless scripted
+	(format (current-error-port) "~a~%" size))
+      0))))
+
 
 (define op-edit-without-checking ...)
-(define op-filename ...)
 (define op-global ...)
 (define op-global-interactive ...)
 (define op-help ...)
@@ -309,8 +354,13 @@ after the command character."
     (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
     #f)
    ((eqv? parser 'file)
-    (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
-    #f)
+    ;; In the filename case, there needs to be a single space separator
+    ;; and then a filename.  The rest of the command line is the
+    ;; filename.
+    (let ((fname (read-ed-filename port)))
+      (unless fname
+	(set! *op-dispatch-error* (get-read-ed-filename-err)))
+      fname))
    ((eqv? parser 'address)
     #f)
    ((eqv? parser 'regex)

@@ -9,9 +9,11 @@
   #:use-module (rnrs io ports)
   #:use-module (mlg assert)
   #:use-module (mlg debug)
+  #:use-module (mlg journal)
+  #:use-module (mlg math)
+  #:use-module (mlg strings)
   #:use-module (mlg time)
   #:use-module (mlg utils)
-  #:use-module (mlg journal)
   #:export(
 	   __FILE__
 	   __LINE__
@@ -46,23 +48,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; From (ryu core)
-(define (bytes-to-bits b)
-  (assert-type integer b)
-  (* 8 b))
-
-(define (unsigned-limit b)
-  (assert-type integer b)
-  (1- (expt 2 (bytes-to-bits b))))
-
-(define-inlinable (lognot-uint x b)
-  (assert-type integer b)
-  (assert-type integer x)
-  (- (unsigned-limit b) (logand (unsigned-limit b) x)))
-
-(define (lognot-uint16 x)
-  (assert-type integer x)
-  "Find the bitwise complement of a 16-bit unsigned integer."
-  (lognot-uint x 2))
 
 (define-syntax __FILE__
   (syntax-rules ()
@@ -208,7 +193,7 @@
 		     "CODE_FILE" (__FILE__)
 		     "CODE_LINE" (STRLOC)
 		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" (__LOCALS__)))))
+		     "MESSAGE" (string->format-escaped-string (__LOCALS__))))))
 
 (define-syntax log-debug-time
   (syntax-rules ()

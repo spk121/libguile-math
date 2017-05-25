@@ -26,6 +26,10 @@
 	    lognot-uint32
 	    lognot-uint64
 
+	    ;; 6.5.4 Cast operators
+	    cast-int32-to-uint32
+	    cast-uint32-to-int32
+	    
 	    ;; 6.5.5 Multiplicative operators
 	    c*
 	    c/
@@ -232,6 +236,21 @@
 	    INT64_MAX
 	    UINT64_MAX
 	    
+	    ;; 7.21.4.1 The remove function
+	    remove
+
+	    ;; 7.21.4.2 The rename function
+	    rename
+	    
+	    ;; 7.21.5.1 The fclose function
+	    fclose
+
+	    ;; 7.21.5.2 The fflush function
+	    fflush
+
+	    ;; 7.21.5.3 The fopen function
+	    fopen
+
 	    ;; <complex.h>
 	    CMPLX
 	    creal
@@ -242,7 +261,7 @@
 	    clog
 	    cpow
 	    csqrt
-	    csin ctan
+	    csin ccos ctan
 	    csinh ccosh ctanh
 	    casinh cacosh catanh
 
@@ -567,11 +586,6 @@ required single characters replaced with trigraph sequences."
 (define (signed-limit-neg b)
   (- (expt 2 (1- (bytes-to-bits b)))))
 
-(define (cast-32bit-signed-to-unsigned x)
-  (if (< x 0)
-      (- #x100000000 (logand #x7fffffff (abs x)))
-      (logand #x7FFFFFFF x)))
-
 (define-inlinable (lognot-uint x b)
   (- (unsigned-limit b) (logand (unsigned-limit b) x)))
 
@@ -609,6 +623,16 @@ required single characters replaced with trigraph sequences."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.4 Cast operators
+
+(define (cast-int32-to-uint32 x)
+  (if (< x 0)
+      (- #x100000000 (logand #x7fffffff (abs x)))
+      (logand #x7FFFFFFF x)))
+
+(define (cast-uint32-to-int32 x)
+  (if (<= x #x7fffffff)
+      x
+      (- (- #x100000000 (logand x #xffffffff)))))
 
 ;; No close analog in Guile.
 
@@ -1832,10 +1856,14 @@ be known by the name NEW."
   (open-file filename mode #:encoding (locale-encoding
 				       %global-locale)))
 
-;; 7.21.9.3 The fsetpos function
-
+;; 7.21.5.4 The freopen function
+;; 7.21.5.5 The setbuf function
 ;; 7.21.5.6 The setvbuf function
+
 ;; There is one in core Guile.
+
+;; 7.21.6.1 The fprintf functions
+
 
 ;; 7.21.6 Formatted input/output
 #!
