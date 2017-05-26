@@ -12,7 +12,7 @@
   #:use-module (mlg ed filename)
   #:use-module (gano CBuffer)
   #:export (op-get-dispatch-error
-	    op-dispatch))
+            op-dispatch))
 
 (define EOF -1)
 (define ERR -2)
@@ -50,7 +50,7 @@
 
   ;; So in this case Ed address == CBuffer address
   (ed-append cbuf (first addr) append)
-  
+
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -76,9 +76,9 @@
   ;; 1-indexed end line (inclusive). As an special case, zero is
   ;; mapped to one.
   (let ((start (1- (max 1 (first addr))))
-	(end (max 1 (second addr))))
+        (end (max 1 (second addr))))
     (ed-change cbuf start end append))
-  
+
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -103,7 +103,7 @@
   ;; The Ed address is a 1-indexed start line (inclusive) and a
   ;; 1-indexed end line (inclusive). An address of zero is invalid.
   (let ((start (first addr))
-	(end (second addr)))
+        (end (second addr)))
     (cond
      ((or (zero? start) (zero? end))
       (set! *op-dispatch-error* "invalid address")
@@ -111,7 +111,7 @@
       ERR)
      (else
       (ed-delete cbuf (1- start) end))))
-  
+
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -137,12 +137,72 @@ file."
   (format #t "Current filename is ~a~%" (get-last-filename))
   0)
 
+(define (op-help cbuf addr special suffix append)
+  ;; Help is handled by the main loop
+  'help)
+
+(define (op-help-mode cbuf addr special suffix append)
+  ;; Help mode is handled by the main loop
+  'help-mode)
+
+(define (op-insert cbuf addr special suffix append)
+  "Appends lines before the given address."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (list-length-1? addr))
+  (warn-if-false (list-of-integers? addr))
+  (warn-if-false (list-of-strings? append))
+  (warn-if-false (string? suffix))
+
+  ;; The CBuffer primitive ed-append inserts expects the line number
+  ;; where the insertions happens, and its line numbers are
+  ;; zero-indexed.
+
+  ;; Ed line numbers are 1-indexed and indicate the line after which
+  ;; the insertion occurs. Zero means before the first line.
+
+  ;; So in this case Ed address = CBuffer address - 1
+  ;; The spec says to treat zero as one.
+  ;; FIXME: add strict address checking
+  (ed-append cbuf (max 0 (1- (first addr)) append))
+
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
+  0)
+
+(define (op-join cbuf addr special suffix append)
+  "Joins contiguous lines."
+  (warn-if-false (cbuffer? cbuf))
+  (warn-if-false (list-of-integers? addr))
+  (warn-if-false (string? suffix))
+
+  (if (< (length addr) 2)
+      0
+      ;; else
+
+      ;; The CBuffer primitive ed-join inserts expects the a start
+      ;; address (inclusive) and end address (exclusive) where the
+      ;; join happens, and its line numbers are zero-indexed.
+
+      ;; Ed line numbers are 1-indexed and are start (inclusive)
+      ;; and end (inclusive). Zero is invalid.
+      ;; FIXME: paranoid address checking
+      (ed-join cbuf (1- (first addr)) (second addr)))
+
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
+  0)
+
+
 (define (put-tty-line str n suffix)
   "Print text to stdout."
   (warn-if-false (string? str))
   (warn-if-false (integer? n))
   (warn-if-false (string? suffix))
-  
+
   (if (member #\n (string->list suffix))
       (format #t "~d~/" n))
   (if (member #\l (string->list suffix))
@@ -156,7 +216,7 @@ file."
   (warn-if-false (integer-nonnegative? to))
   (warn-if-false (<= from to))
   (warn-if-false (string? suffix))
-  
+
   (cond
    ((or (zero? from) (zero? to))
     (set! *op-dispatch-error* "invalid address")
@@ -164,7 +224,7 @@ file."
     ERR)
    (else
     (do ((i from (1+ i)))
-	((>= i to))
+        ((>= i to))
       (put-tty-line (get-text-line cbuf (1- i)) i suffix))
     0)))
 
@@ -174,12 +234,12 @@ file."
   ;; This whole function is a bit garbage, because they tried to hard
   ;; to merge the popen and fopen into one path.
   (let ((size 0)
-	(port 
-	 (if (string-starts-with? fname #\!)
-	     (open-input-pipe (string-drop fname 1))
-	     ;; else
-	     (false-if-exception (open-input-file (string-strip-escapes fname))))))
-    
+        (port
+         (if (string-starts-with? fname #\!)
+             (open-input-pipe (string-drop fname 1))
+             ;; else
+             (false-if-exception (open-input-file (string-strip-escapes fname))))))
+
     (cond
      ((not port)
       (set! *op-dispatch-error* (format #f "cannot open input file: ~a" fname))
@@ -187,24 +247,20 @@ file."
      ((< (set&get size (ed-edit cbuf port)) 0)
       ERR)
      ((if (char=? (string-ref-safe fname 0) #\!)
-	  (not (status:exit-val (close-pipe port)))
-	  ;; else
-	  (begin (close-input-port port) #t))
+          (not (status:exit-val (close-pipe port)))
+          ;; else
+          (begin (close-input-port port) #t))
       (set! *op-dispatch-error* (format #f "cannot close input file: ~a" fname))
       ERR)
      (else
       (unless scripted
-	(format (current-error-port) "~a~%" size))
+        (format (current-error-port) "~a~%" size))
       0))))
 
 
 (define op-edit-without-checking ...)
 (define op-global ...)
 (define op-global-interactive ...)
-(define op-help ...)
-(define op-help-mode ...)
-(define op-insert ...)
-(define op-join ...)
 (define op-mark ...)
 (define op-list ...)
 (define op-move ...)
@@ -273,28 +329,28 @@ file."
 (define (dispatch:op x)         (list-ref x 7))
 
 (define (op-dispatch cbuf port
-		     addr-list addr-cur addr-last
-		     bmark-callback regex-callback)
+                     addr-list addr-cur addr-last
+                     bmark-callback regex-callback)
   (and-let* ((c (read-char port))
-	     (op (%op-key c))
-	     (addr (%op-addr op addr-list addr-cur addr-last))
-	     (special (%op-special port (dispatch:parser op)))
-	     (suffix (%op-suffix port))
-	     (append (if (dispatch:append? op)
-			 (%op-append port)
-			 '())))
+             (op (%op-key c))
+             (addr (%op-addr op addr-list addr-cur addr-last))
+             (special (%op-special port (dispatch:parser op)))
+             (suffix (%op-suffix port))
+             (append (if (dispatch:append? op)
+                         (%op-append port)
+                         '())))
     (if (not addr)
-	(begin
-	  (set! *op-dispatch-error* (addr-get-range-error))
-	  ERR)
-	;; else
-	((dispatch:op op) cbuf addr special suffix append))))
+        (begin
+          (set! *op-dispatch-error* (addr-get-range-error))
+          ERR)
+        ;; else
+        ((dispatch:op op) cbuf addr special suffix append))))
 
 (define (%op-key c)
   (let ((op (assoc c dispatch-table)))
     (unless op
       (set! *op-dispatch-error*
-	(format #f "unknown command ~s" c)))
+        (format #f "unknown command ~s" c)))
     op))
 
 ;; Arguments
@@ -309,40 +365,40 @@ file."
 ;; address, apparently, the given address is used for both.
 (define (%op-addr op addr-list line-cur line-last)
   (let ((addr-count-required (dispatch:addr-count op))
-	(addr-list-len (length addr-list)))
+        (addr-list-len (length addr-list)))
     (cond
      ((and (= addr-count-required 0) (> addr-list-len 0))
       (set! *op-dispatch-error*
-	(format #f "command ~s expects zero addresses" (dispatch:key op)))
+        (format #f "command ~s expects zero addresses" (dispatch:key op)))
       #f)
      (else
       (let ((addr
-	     (cond
-	      ((= addr-count-required 0)
-	       '())
-	      ((= addr-count-required 1)
-	       (cond
-		((>= addr-list-len 1)
-		 (list (last addr-list)))
-		(else
-		 (list (convert-default-addr (dispatch:addr-start op) line-cur line-last)))))
-	      ((= addr-count-required 2)
-	       (cond
-		((= addr-list-len 2)
-		 addr-list)
-		((= addr-list-len 1)
-		 (list (last addr-list)
-		       (last addr-list)))
-		((= addr-list-len 0)
-		 (list (convert-default-addr (dispatch:addr-start op) line-cur line-last)
-		       (convert-default-addr (dispatch:addr-end op) line-cur line-last)))))
-	      (else
-	       ;; Should never reach here.
-	       (set! *op-dispatch-error*
-		 (format #f "command ~a expects ~a addresses but received ~a addresses"
-			 (dispatch:key op) addr-count-required addr-list-len))
-	       #f))))
-	addr)))))
+             (cond
+              ((= addr-count-required 0)
+               '())
+              ((= addr-count-required 1)
+               (cond
+                ((>= addr-list-len 1)
+                 (list (last addr-list)))
+                (else
+                 (list (convert-default-addr (dispatch:addr-start op) line-cur line-last)))))
+              ((= addr-count-required 2)
+               (cond
+                ((= addr-list-len 2)
+                 addr-list)
+                ((= addr-list-len 1)
+                 (list (last addr-list)
+                       (last addr-list)))
+                ((= addr-list-len 0)
+                 (list (convert-default-addr (dispatch:addr-start op) line-cur line-last)
+                       (convert-default-addr (dispatch:addr-end op) line-cur line-last)))))
+              (else
+               ;; Should never reach here.
+               (set! *op-dispatch-error*
+                 (format #f "command ~a expects ~a addresses but received ~a addresses"
+                         (dispatch:key op) addr-count-required addr-list-len))
+               #f))))
+        addr)))))
 
 (define (%op-special port parser)
   "Some commands require parsing of addition information on the command-line
@@ -359,7 +415,7 @@ after the command character."
     ;; filename.
     (let ((fname (read-ed-filename port)))
       (unless fname
-	(set! *op-dispatch-error* (get-read-ed-filename-err)))
+        (set! *op-dispatch-error* (get-read-ed-filename-err)))
       fname))
    ((eqv? parser 'address)
     #f)
@@ -381,20 +437,20 @@ after the command character."
 (define (%op-suffix port)
   "Some commands allow 'l' 'n' or 'p' afterward to print a result."
   (let loop ((ret (peek-char-safe port))
-	     (out ""))
+             (out ""))
     (if (member ret (string->list "lnp"))
-	(begin
-	  (read-char port)
-	  (loop (peek-char-safe port) (string-append out (string ret))))
-	;; else
-	out)))
+        (begin
+          (read-char port)
+          (loop (peek-char-safe port) (string-append out (string ret))))
+        ;; else
+        out)))
 
 (define (%op-append port)
   "Some commands allow the entry of text lines, ended by entering
 a single '.' on its own line"
   ;; (drain-input port)
   (let loop ((out '())
-	     (line (read-line (current-input-port))))
+             (line (read-line (current-input-port))))
     (cond
      ((eof-object? line)
       out)
@@ -402,7 +458,7 @@ a single '.' on its own line"
       out)
      (else
       (loop (append out (list line))
-	    (read-line (current-input-port)))))))
+            (read-line (current-input-port)))))))
 
 (define (convert-default-addr sym line-cur line-last)
   (cond
@@ -415,3 +471,7 @@ a single '.' on its own line"
    ((eqv? 'dot+1)
     (1+ line-cur))))
 
+;; Local Variables:
+;; coding: us-ascii
+;; indent-tabs-mode: nil
+;; End:
