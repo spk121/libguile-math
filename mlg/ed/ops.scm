@@ -12,7 +12,15 @@
   #:use-module (mlg ed filename)
   #:use-module (gano CBuffer)
   #:export (op-get-dispatch-error
+            op-validate-key
             op-dispatch))
+
+
+(define (op-initialize)
+  ;; There is where we collect all the possible operations
+  ;; into the dispatch table.  But for now, the dispatch table
+  ;; is static.
+  #t)
 
 (define EOF -1)
 (define ERR -2)
@@ -196,6 +204,20 @@ file."
     (display-lines cbuf (get-line-cur cbuf) (1+ (get-line-cur cbuf)) suffix))
   0)
 
+(define (op-list cbuf addr special suffix append)
+  (display-lines cbuf (first addr) (1+ (second addr)) "l")
+  0)
+
+(define (op-move cbuf addr special suffix append)
+  (display-lines cbuf (first addr) (second addr) "n")
+  0)
+
+(define (op-number cbuf addr special suffix append)
+  (display-lines cbuf (first addr) (1+ (second addr)) "n")
+  0)
+
+(define (op-print cbuf addr special suffix append)
+  (display-lines cbuf (first addr) (1+ (second addr)) "p"))
 
 (define (put-tty-line str n suffix)
   "Print text to stdout."
@@ -216,6 +238,7 @@ file."
   (warn-if-false (integer-nonnegative? to))
   (warn-if-false (<= from to))
   (warn-if-false (string? suffix))
+  (log-debug-locals)
 
   (cond
    ((or (zero? from) (zero? to))
@@ -262,10 +285,6 @@ file."
 (define op-global ...)
 (define op-global-interactive ...)
 (define op-mark ...)
-(define op-list ...)
-(define op-move ...)
-(define op-number ...)
-(define op-print ...)
 (define op-prompt ...)
 (define op-quit ...)
 (define op-quit-without-checking ...)
@@ -284,49 +303,51 @@ file."
   ;; 1. Shortcut character
   ;; 2. Required number of addresses
   ;; 3,4. The default addresses
+  ;; 5. If zero is a valid address
   ;; 5. How to parse additional info
   ;; 6. Does command accept standard suffix
   ;; 7. Does command accept input lines
   ;; 8. Operation function
-  `((#\a    1 dot   #f    null          #t #t  ,op-append)
-    (#\c    2 dot   dot   null          #t #t  ,op-change)
-    (#\d    2 dot   dot   null          #t #f  ,op-delete)
-    (#\e    0 #f    #f    file          #f #f  ,op-edit)
-    (#\E    0 #f    #f    file          #f #f  ,op-edit-without-checking)
-    (#\f    0 #f    #f    file          #f #f  ,op-filename)
-    (#\g    2 1     $     regex+cmd     #t #f  ,op-global)
-    (#\G    2 1     $     regex         #t #f  ,op-global-interactive)
-    (#\h    0 #f    #f    null          #t #f  ,op-help)
-    (#\H    0 #f    #f    null          #t #f  ,op-help-mode)
-    (#\i    1 dot   #f    null          #t #t  ,op-insert)
-    (#\j    2 dot   dot+1 null          #t #f  ,op-join)
-    (#\k    1 dot   #f    bmark         #t #f  ,op-mark)
-    (#\l    2 dot   dot   null          #t #f  ,op-list)
-    (#\m    2 dot   dot   address       #t #f  ,op-move)
-    (#\n    2 dot   dot   null          #t #f  ,op-number)
-    (#\p    2 dot   dot   null          #t #f  ,op-print)
-    (#\P    0 #f    #f    null          #t #f  ,op-prompt)
-    (#\q    0 #f    #f    null          #f #f  ,op-quit)
-    (#\Q    0 #f    #f    null          #f #f  ,op-quit-without-checking)
-    (#\r    1 $     #f    file          #f #f  ,op-read)
-    (#\s    2 dot   dot   regex+replace #t #f  ,op-substitute)
-    (#\t    2 dot   dot   address       #t #f  ,op-copy)
-    (#\u    0 #f    #f    null          #t #f  ,op-undo)
-    (#\v    2 1     $     regex+cmd     #t #f  ,op-global-non-matched)
-    (#\V    2 1     $     regex         #t #f  ,op-global-interactive-non-matched)
-    (#\w    2 1     $     file          #f #f  ,op-write)
-    (#\=    1 $     #f    null          #t #f  ,op-line-number)
-    (#\!    0 #f    #f    shell         #f #f  ,op-shell-escape)
-    (#\nul  1 dot+1 #f    null          #t #f  ,op-null)))
+  `((#\a    1 dot   #f    #t null          #t #t  ,op-append)
+    (#\c    2 dot   dot   #t null          #t #t  ,op-change)
+    (#\d    2 dot   dot   #f null          #t #f  ,op-delete)
+    (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
+    (#\E    0 #f    #f    #f file          #f #f  ,op-edit-without-checking)
+    (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
+    (#\g    2 1     $     #f regex+cmd     #t #f  ,op-global)
+    (#\G    2 1     $     #f regex         #t #f  ,op-global-interactive)
+    (#\h    0 #f    #f    #f null          #t #f  ,op-help)
+    (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
+    (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
+    (#\j    2 dot   dot+1 #f null          #t #f  ,op-join)
+    (#\k    1 dot   #f    #f bmark         #t #f  ,op-mark)
+    (#\l    2 dot   dot   #f null          #t #f  ,op-list)
+    (#\m    2 dot   dot   #t address       #t #f  ,op-move)
+    (#\n    2 dot   dot   #f null          #t #f  ,op-number)
+    (#\p    2 dot   dot   #f null          #t #f  ,op-print)
+    (#\P    0 #f    #f    #f null          #t #f  ,op-prompt)
+    (#\q    0 #f    #f    #f null          #f #f  ,op-quit)
+    (#\Q    0 #f    #f    #f null          #f #f  ,op-quit-without-checking)
+    (#\r    1 $     #f    #t file          #f #f  ,op-read)
+    (#\s    2 dot   dot   #f regex+replace #t #f  ,op-substitute)
+    (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
+    (#\u    0 #f    #f    #f null          #t #f  ,op-undo)
+    (#\v    2 1     $     #f regex+cmd     #t #f  ,op-global-non-matched)
+    (#\V    2 1     $     #f regex         #t #f  ,op-global-interactive-non-matched)
+    (#\w    2 1     $     #f file          #f #f  ,op-write)
+    (#\=    1 $     #f    #f null          #t #f  ,op-line-number)
+    (#\!    0 #f    #f    #f shell         #f #f  ,op-shell-escape)
+    (#\nul  1 dot+1 #f    #f null          #t #f  ,op-null)))
 
 (define (dispatch:key x)        (list-ref x 0))
 (define (dispatch:addr-count x) (list-ref x 1))
 (define (dispatch:addr-start x) (list-ref x 2))
 (define (dispatch:addr-end x)   (list-ref x 3))
-(define (dispatch:parser x)     (list-ref x 4))
-(define (dispatch:suffix? x)    (list-ref x 5))
-(define (dispatch:append? x)    (list-ref x 6))
-(define (dispatch:op x)         (list-ref x 7))
+(define (dispatch:zero-addr-ok? x) (list-ref x 4))
+(define (dispatch:parser x)     (list-ref x 5))
+(define (dispatch:suffix? x)    (list-ref x 6))
+(define (dispatch:append? x)    (list-ref x 7))
+(define (dispatch:op x)         (list-ref x 8))
 
 (define (op-dispatch cbuf port
                      addr-list addr-cur addr-last
@@ -334,17 +355,44 @@ file."
   (and-let* ((c (read-char port))
              (op (%op-key c))
              (addr (%op-addr op addr-list addr-cur addr-last))
-             (special (%op-special port (dispatch:parser op)))
+             (special (log-debug-pk (%op-special port (dispatch:parser op))))
              (suffix (%op-suffix port))
              (append (if (dispatch:append? op)
                          (%op-append port)
                          '())))
+    (log-debug-locals)
     (if (not addr)
         (begin
           (set! *op-dispatch-error* (addr-get-range-error))
           ERR)
         ;; else
         ((dispatch:op op) cbuf addr special suffix append))))
+
+(define (op-validate-addr-range-for-key c addr-range)
+  "Check that the addr range is valid form the command key C."
+  (let* ((op (%op-key c))
+         (required-count (dispatch:addr-count op)))
+    (cond
+     ((and (= 0 required-count)
+           (not (= 0 (length addr-range))))
+      (set! *op-dispatch-error*
+        (format #f ("command '~a' takes zero arguments" c)))
+      #f)
+      
+     ((and (not (dispatch:zero-addr-ok? op))
+           (any zero? addr-range))
+      (set! *op-dispatch-error*
+        (format #f "address out of range: ~a" addr-range))
+      #f)
+
+     (else
+      #t))))
+    
+(define (op-validate-key c)
+  (let ((op (assoc c dispatch-table)))
+    (if op
+        #t
+        #f)))
 
 (define (%op-key c)
   (let ((op (assoc c dispatch-table)))
@@ -418,7 +466,14 @@ after the command character."
         (set! *op-dispatch-error* (get-read-ed-filename-err)))
       fname))
    ((eqv? parser 'address)
-    #f)
+    (let ((addr (addr-get-range port
+                                current-line
+                                last-line
+                                bmark-callback
+                                regex-callback)))
+      (if (not addr)
+          (set! *op-dispatch-error* (addr-get-range-error)))
+      addr))
    ((eqv? parser 'regex)
     (set! *op-dispatch-error* (format #f "unhandled parser type ~a" parser))
     #f)

@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# This searches my computer's terminfo database for terminals that
+# have 8 or more colors xand a 'setaf' terminfo property.  I look for
+# the %p1%d string in setaf because that is an ANSI color escape
+# string.
+
 TERMS=$(ls -1 /usr/share/terminfo/*/* | xargs basename -a)
 echo "("
 for t in $TERMS

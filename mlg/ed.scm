@@ -125,10 +125,10 @@
       (unless interactive
         (quit 2))))
 
-
     ;; Prepare the subsystems
     (bmark-set-default-cbuf cbuf)
     (regex-set-default-cbuf cbuf)
+    (op-initialize)
 
     ;; This is the main loop
     (while #t
@@ -164,7 +164,10 @@
             (line-last (if (zero? (get-line-count cbuf))
                            0
                            (get-line-count cbuf)))
+            ;; We read in one line of text from the user.
             (port (open-input-string (read-line (current-input-port)))))
+
+        ;; First, parse an address.
         (let ((addr-range (addr-get-range port
                                           line-cur line-last
                                           bmark-default-cb regex-default-cb)))
@@ -172,6 +175,18 @@
             (seterrmsg (addr-get-range-error))
             (set! status ERR)
             (continue))
+
+          ;; Then parse a command name.
+          (let ((cmd (read-char-safe port)))
+
+            ;; With an address and a command name, we can check to
+            ;; see if the address is valid.
+            (when (not (op-validate-address cmd addr-range))
+              (seterrmsg (op-get-error))
+              (set! status ERR)
+              (continue))
+            
+            
           (set! status
             (op-dispatch cbuf port addr-range line-cur line-last
                          bmark-default-cb regex-default-cb))
@@ -185,7 +200,7 @@
           ;; Read any unused character in this line
           (if (not (eof-object? (peek-char port)))
               (read-line (current-input-port))))))))
-
+  )
 (define (handle-winch signo)
   ;; When there is a way to check TIOCGWINSZ,
   ;; then set rows and cols here.
