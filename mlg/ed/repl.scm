@@ -19,9 +19,11 @@
 (define-module (mlg ed repl)
   #:use-module (gano CBuffer)
   #:use-module (gano poslist)
+  #:use-module (ice-9 popen)
   #:use-module (ice-9 rdelim)
   #:use-module (mlg ed address)
   #:use-module (mlg ed bmark)
+  #:use-module (mlg ed filename)
   #:use-module (mlg ed regex)
   #:use-module (mlg logging)
   #:use-module (mlg port)
@@ -80,7 +82,8 @@
   ;; The following parameter describe the verbosity of the REPL
 
   ;; If true, suppress almost all output
-  (m_Scripted #:init-value #f)
+  (m_Scripted #:init-value #f
+              #:getter get-scripted)
 
   ;; If true, print full error messages instead of the
   ;; abbreviated error message, which is just '?'
@@ -144,8 +147,8 @@
     (let ((pos (bookmark-get (get-bookmarks repl) name)))
       (log-debug-locals)
       (if pos
-	  (1+ (car pos))
-	  #f))))
+          (1+ (car pos))
+          #f))))
 
 (define-method (ed-repl-display-lines (repl <EdRepl>) from to suffix)
   "Print a range of lines to stdout, using Ed coordinates, where both
@@ -208,8 +211,8 @@ FROM and TO are 1-indexed and inclusive."
                   (case (dispatch:parser op)
                     ((address)
                      (ed-repl-parse/validate-3rd-address repl port))
-		    ((bookmark)
-		     (ed-repl-parse/validate-bookmark-name repl port))
+                    ((bookmark)
+                     (ed-repl-parse/validate-bookmark-name repl port))
                     ((file)
                      (ed-repl-parse/validate-filename repl port))
                     ((regex)
@@ -252,7 +255,7 @@ FROM and TO are 1-indexed and inclusive."
   (let ((addr-range (addr-get-range port
                                     (ed-repl-get-line-cur-in-ed-coordinates repl)
                                     (ed-repl-get-line-last-in-ed-coordinates repl)
-				    (ed-repl-construct-bookmark-callback repl)
+                                    (ed-repl-construct-bookmark-callback repl)
                                     regex-default-cb)))
     (unless addr-range
       (set-err-msg! repl (addr-get-range-error))
@@ -264,7 +267,7 @@ FROM and TO are 1-indexed and inclusive."
     (cond
      ((not (char-lower-case? name))
       (set-err-msg! repl
-		    (format #f "invalid bookmark name '~a'" name))
+                    (format #f "invalid bookmark name '~a'" name))
       #f)
      (else
       name))))
@@ -444,6 +447,30 @@ C."
     (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
   0)
 
+(define-method (op-copy (repl <EdRepl>) addr addr3 suffix append)
+  "Copies the addressed lines after the line addressed by the third address.
+If the 3rd address is zero, it copies the addressed lines to the
+beginning."
+  (log-debug-locals)
+  ;; Move the current position out of the way, for the moment.
+  (set-line-cur! repl 0)
+
+  ;; The CBuffer primitive wants the zero-indexed start line
+  ;; (inclusive) and zero-indexed end line (exclusive), and will
+  ;; copy to the zero-indexed 3rd address.
+
+  ;; The Ed address is a 1-indexed start line (inclusive) and a
+  ;; 1-indexed end line (inclusive). The 3rd address is the
+  ;; 1-indexed line after which to move the lines.  Zero indicates
+  ;; that the lines are to be inserted before the 1st line.
+  (ed-copy repl (1- (first addr)) (second addr) addr3)
+
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+  0)
+
 (define-method (op-delete (repl <EdRepl>) addr special suffix append)
   "Deletes the addressed lines from the buffer."
   ;; Move the current position out of the way, for the moment.
@@ -460,6 +487,43 @@ C."
     ;; When displaying a line after an append, print only
     ;; the current line.
     (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+  0)
+
+(define-method (op-edit (repl <EdRepl>) addr fn suffix append)
+  "Delete contents of buffer and read in from file or shell
+command."
+  ;; This whole function is a bit garbage, because they tried to hard
+  ;; to merge the popen and fopen into one path.
+  (let ((size 0)
+        (port
+         (if (string-starts-with? fn #\!)
+             (open-input-pipe (string-drop fn 1))
+             ;; else
+             (false-if-exception (open-input-file (string-strip-escapes fn))))))
+
+    (cond
+     ((not port)
+      (set-err-msg! repl "cannot open input file")
+      (set-status! repl ERR)
+      ERR)
+     ((< ((lambda (x) (set! size x) x) (ed-edit repl port)) 0)
+      ERR)
+     ((if (char=? (string-ref-safe fn 0) #\!)
+          (not (status:exit-val (close-pipe port)))
+          ;; else
+          (begin (close-input-port port) #t))
+      (set-err-msg! repl "cannot close input file")
+      ERR)
+     (else
+      ;; Success
+      (set-filename! repl (get-last-filename))
+      (unless (get-scripted repl)
+        (format (current-error-port) "~a~%" size))
+      0))))
+
+(define-method (op-filename (repl <EdRepl>) addr fname suffix append)
+  "Store fname as a filename for future saving operations."
+  (set-filename! repl fname)
   0)
 
 (define-method (op-help (repl <EdRepl>) addr special suffix append)
@@ -547,30 +611,6 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   (set-prompt-active! repl (not (get-prompt-active repl)))
   0)
 
-(define-method (op-copy (repl <EdRepl>) addr addr3 suffix append)
-  "Copies the addressed lines after the line addressed by the third address.
-If the 3rd address is zero, it copies the addressed lines to the
-beginning."
-  (log-debug-locals)
-  ;; Move the current position out of the way, for the moment.
-  (set-line-cur! repl 0)
-
-  ;; The CBuffer primitive wants the zero-indexed start line
-  ;; (inclusive) and zero-indexed end line (exclusive), and will
-  ;; copy to the zero-indexed 3rd address.
-
-  ;; The Ed address is a 1-indexed start line (inclusive) and a
-  ;; 1-indexed end line (inclusive). The 3rd address is the
-  ;; 1-indexed line after which to move the lines.  Zero indicates
-  ;; that the lines are to be inserted before the 1st line.
-  (ed-copy repl (1- (first addr)) (second addr) addr3)
-
-  (unless (string-null? suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
-  0)
-
 (define-method (op-line-number (repl <EdRepl>) addr special suffix append)
   "Print the addressed line."
   (display (last addr))
@@ -598,9 +638,9 @@ beginning."
                    `((#\a    1 dot   #f    #t null          #t #t  ,op-append)
                      (#\c    2 dot   dot   #t null          #t #t  ,op-change)
                      (#\d    2 dot   dot   #f null          #t #f  ,op-delete)
-                     (#\e    0 #f    #f    #f file          #f #f  op-edit)
+                     (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
                      (#\E    0 #f    #f    #f file          #f #f  op-edit-without-checking)
-                     (#\f    0 #f    #f    #f file          #f #f  op-filename)
+                     (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
                      (#\g    2 1     $     #f regex+cmd     #t #f  op-global)
                      (#\G    2 1     $     #f regex         #t #f  op-global-interactive)
                      (#\h    0 #f    #f    #f null          #t #f  ,op-help)
