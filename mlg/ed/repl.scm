@@ -1,3 +1,4 @@
+;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg ed repl) - an Ed-like read-eval-print loop
 ;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
 ;;;
@@ -17,6 +18,7 @@
 
 (define-module (mlg ed repl)
   #:use-module (gano CBuffer)
+  #:use-module (gano poslist)
   #:use-module (ice-9 rdelim)
   #:use-module (mlg ed address)
   #:use-module (mlg ed bmark)
@@ -135,6 +137,16 @@
    ((eqv? 'dot+1)
     (1+ line-cur))))
 
+(define-method (ed-repl-construct-bookmark-callback (repl <EdRepl>))
+  (lambda (name)
+    (log-debug "In bookmark callback ~a ~a" repl name)
+    ;; CBuffer bookmarks are zero-indexed. Ed bookmarks are 1-indexed.
+    (let ((pos (bookmark-get (get-bookmarks repl) name)))
+      (log-debug-locals)
+      (if pos
+	  (1+ (car pos))
+	  #f))))
+
 (define-method (ed-repl-display-lines (repl <EdRepl>) from to suffix)
   "Print a range of lines to stdout, using Ed coordinates, where both
 FROM and TO are 1-indexed and inclusive."
@@ -196,12 +208,14 @@ FROM and TO are 1-indexed and inclusive."
                   (case (dispatch:parser op)
                     ((address)
                      (ed-repl-parse/validate-3rd-address repl port))
+		    ((bookmark)
+		     (ed-repl-parse/validate-bookmark-name repl port))
                     ((file)
                      (ed-repl-parse/validate-filename repl port))
                     ((regex)
                      (ed-repl-parse-regex))
                     ((regex+cmd)
-                     (ed-repel-parse-regex+cmd))
+                     (ed-repl-parse-regex+cmd))
                     ((regex+replace)
                      (ed-repl-parse-regex+replace))
                     ((shell)
@@ -238,12 +252,22 @@ FROM and TO are 1-indexed and inclusive."
   (let ((addr-range (addr-get-range port
                                     (ed-repl-get-line-cur-in-ed-coordinates repl)
                                     (ed-repl-get-line-last-in-ed-coordinates repl)
-                                    bmark-default-cb
+				    (ed-repl-construct-bookmark-callback repl)
                                     regex-default-cb)))
     (unless addr-range
       (set-err-msg! repl (addr-get-range-error))
       (set-status! repl ERR))
     addr-range))
+
+(define-method (ed-repl-parse/validate-bookmark-name (repl <EdRepl>) port)
+  (let ((name (read-char-safe port)))
+    (cond
+     ((not (char-lower-case? name))
+      (set-err-msg! repl
+		    (format #f "invalid bookmark name '~a'" name))
+      #f)
+     (else
+      name))))
 
 (define-method (ed-repl-parse/validate-3rd-address (repl <EdRepl>) port)
   (let ((addr3 (ed-repl-parse-address-range repl port)))
@@ -547,10 +571,20 @@ beginning."
     (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
   0)
 
-(define-method (op-line-number (repl <EdRepl>) addr addr3 suffix append)
+(define-method (op-line-number (repl <EdRepl>) addr special suffix append)
   "Print the addressed line."
   (display (last addr))
   (newline)
+  0)
+
+(define-method (op-mark (repl <EdRepl>) addr name suffix append)
+  ;; Ed bookmarks are 1-indexed.  CBuffer bookmarks are zero-indexed.
+  (ed-mark repl (1- (last addr)) name)
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl))
+			   suffix))
   0)
 
 (define-method (op-null (repl <EdRepl>) addr addr3 suffix append)
@@ -573,7 +607,7 @@ beginning."
                      (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
                      (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
                      (#\j    2 dot   dot+1 #f null          #t #f  ,op-join)
-                     (#\k    1 dot   #f    #f bmark         #t #f  op-mark)
+                     (#\k    1 dot   #f    #f bookmark      #t #f  ,op-mark)
                      (#\l    2 dot   dot   #f null          #t #f  ,op-list)
                      (#\m    2 dot   dot   #t address       #t #f  ,op-move)
                      (#\n    2 dot   dot   #f null          #t #f  ,op-number)
@@ -594,8 +628,3 @@ beginning."
 
 (while #t
   (ed-repl-do rpl))
-
-;; Local Variables:
-;; coding: us-ascii
-;; indent-tabs-mode: nil
-;; End:
