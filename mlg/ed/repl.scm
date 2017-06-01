@@ -22,7 +22,7 @@
   #:use-module (ice-9 popen)
   #:use-module (ice-9 rdelim)
   #:use-module (mlg ed address)
-  #:use-module (mlg ed bmark)
+  ;; #:use-module (mlg ed bmark)
   #:use-module (mlg ed filename)
   #:use-module (mlg ed regex)
   #:use-module (mlg logging)
@@ -41,6 +41,7 @@
 (define ERR -2)
 (define EMOD -3)
 (define FATAL -4)
+(define QUIT -5)
 
 (define (dispatch:key x)        (list-ref x 0))
 (define (dispatch:addr-count x) (list-ref x 1))
@@ -67,7 +68,9 @@
   (m_IsGlobal #:init-value #f)
 
   ;; If #t, buffer has been modified since the last save.
-  (m_Modified #:init-value #f)
+  (m_Modified #:init-value #f
+              #:getter get-modified
+              #:setter set-modified!)
 
   ;; If #t, we are interactive
   (m_Interactive #:init-value #t)
@@ -102,8 +105,8 @@
 
   ;; When m_PromptActive is #t, this string is used as a prompt.
   (m_PromptString #:init-value "command> "
-                   #:getter get-prompt-string
-                   #:setter set-prompt-string!)
+                  #:getter get-prompt-string
+                  #:setter set-prompt-string!)
 
   (m_DispatchTable #:init-value '()
                    ;; 1. Shortcut character
@@ -117,6 +120,13 @@
                    #:getter get-dispatch-table
                    #:setter set-dispatch-table!)
 
+  (m_Filename #:init-value ""
+              #:getter get-filename
+              #:setter set-filename!)
+
+  (m_LastCommand #:init-value #\null
+                 #:getter get-last-command
+                 #:setter set-last-command!)
   )
 
 (define (make-ed-repl)
@@ -222,7 +232,7 @@ FROM and TO are 1-indexed and inclusive."
                     ((regex+replace)
                      (ed-repl-parse-regex+replace))
                     ((shell)
-                     (ed-repl-parse-shell))
+                     (ed-repl-parse-shell repl port))
                     (else
                      #t)))
                  (suffix
@@ -240,8 +250,10 @@ FROM and TO are 1-indexed and inclusive."
         ;; So, all the parsing is done, and we can finally
         ;; run a command.
         ;; (log-debug-locals)
-        ((dispatch:op op) repl addr extra suffix txt)))
-    (if (< (get-status repl) 0)
+        ((dispatch:op op) repl addr extra suffix txt)
+        (set-last-command! repl c)))
+    
+    (if (member (get-status repl) (list ERR))
         (if (get-garrulous repl)
             (begin
               (display (get-err-msg repl))
@@ -249,7 +261,10 @@ FROM and TO are 1-indexed and inclusive."
             ;; else
             (begin
               (display "?")
-              (newline))))))
+              (newline))))
+    (if (= QUIT (get-status repl))
+        #f
+        #t)))
 
 (define-method (ed-repl-parse-address-range (repl <EdRepl>) port)
   (let ((addr-range (addr-get-range port
@@ -284,14 +299,27 @@ FROM and TO are 1-indexed and inclusive."
       (last addr3)))))
 
 (define-method (ed-repl-parse/validate-filename (repl <EdRepl>) port)
-  (let ((fname (read-ed-filename port)))
-    (if (not fname)
-        (begin
-          (set-err-msg! repl (get-read-ed-filename-err))
-          (set-status! repl ERR)
-          #f)
+  "Extracts a filename from the given port.  If there is not text to
+be read in the port, it returns the previously used filename.  If the
+first character in the filename is '!', it reads a shell command
+instead.  It will return the string, or #f on failure."
+  (let ((txt ""))
+    (if (not (eof-object? (peek-char port)))
+        (set! txt (read-whitespace port)))
+    (if (eof-object? (peek-char port))
+        (if (string-null? (get-filename repl))
+            (begin
+              (set-err-msg! repl "missing filename")
+              (set-status! repl ERR)
+              (unread-string txt port)
+              #f)
+            ;; else
+            (get-filename repl))
         ;; else
-        fname)))
+        (let ((str (string-trim-both (read-line port))))
+          (if (not (string-starts-with? str #\!))
+              (set-filename! repl str))
+          str))))
 
 (define-method (ed-repl-parse/validate-input-lines (repl <EdRepl>) port)
   "Some commands allow the entry of text lines, ended by entering
@@ -320,6 +348,20 @@ Returns a string containing zero or more of 'l', 'n', and 'p'."
         ;; else
         out)))
 
+(define-method (ed-repl-parse-shell (repl <EdRepl>) port)
+  "Extracts a shell from the given port.It will return the string, or #f on failure."
+  (let ((txt ""))
+    (if (not (eof-object? (peek-char port)))
+        (set! txt (read-whitespace port)))
+    (if (eof-object? (peek-char port))
+        (begin
+          (set-err-msg! repl "missing shell command")
+          (set-status! repl ERR)
+          (unread-string txt port)
+          #f)
+        ;; else
+        (string-trim-both (read-line port)))))
+
 ;; Arguments
 ;;
 ;; If an operation takes zero addresses but receives more than
@@ -339,7 +381,7 @@ Returns a string containing zero or more of 'l', 'n', and 'p'."
     (cond
      ((and (= addr-count-required 0) (> addr-list-len 0))
       (set-err-msg! repl
-        (format #f "command ~s expects zero addresses" (dispatch:key op)))
+                    (format #f "command ~s expects zero addresses" (dispatch:key op)))
       #f)
      (else
       (let ((addr
@@ -365,8 +407,8 @@ Returns a string containing zero or more of 'l', 'n', and 'p'."
               (else
                ;; Should never reach here.
                (set-err-msg! repl
-                 (format #f "command ~a expects ~a addresses but received ~a addresses"
-                         (dispatch:key op) addr-count-required addr-list-len))
+                             (format #f "command ~a expects ~a addresses but received ~a addresses"
+                                     (dispatch:key op) addr-count-required addr-list-len))
                #f))))
         addr)))))
 
@@ -413,7 +455,8 @@ C."
 
   ;; So in this case Ed address == CBuffer address
   (ed-append repl (first addr) txt)
-
+  (unless (null? txt)
+    (set-modified! repl #t))
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -440,7 +483,7 @@ C."
   (let ((start (1- (max 1 (first addr))))
         (end (max 1 (second addr))))
     (ed-change repl start end append))
-
+  (set-modified! repl #t)
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -464,7 +507,7 @@ beginning."
   ;; 1-indexed line after which to move the lines.  Zero indicates
   ;; that the lines are to be inserted before the 1st line.
   (ed-copy repl (1- (first addr)) (second addr) addr3)
-
+  (set-modified! repl #t)
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -482,7 +525,7 @@ beginning."
   ;; The Ed address is a 1-indexed start line (inclusive) and a
   ;; 1-indexed end line (inclusive). An address of zero is invalid.
   (ed-delete repl (1- (first addr)) (second addr))
-
+  (set-modified! repl #t)
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
@@ -492,15 +535,24 @@ beginning."
 (define-method (op-edit (repl <EdRepl>) addr fn suffix append)
   "Delete contents of buffer and read in from file or shell
 command."
-  ;; This whole function is a bit garbage, because they tried to hard
-  ;; to merge the popen and fopen into one path.
+  (if (and (get-modified repl)
+           (not (eqv? (get-last-command repl) #\e)))
+      (begin
+        (set-err-msg! repl "there are unsaved changes")
+        (set-status! repl ERR)
+        ERR)
+      ;; else
+      (op-edit-without-checking repl addr fn suffix append)))
+
+(define-method (op-edit-without-checking (repl <EdRepl>) addr fn suffix append)
+  "Delete contents of buffer and read in from file or shell command."
   (let ((size 0)
         (port
          (if (string-starts-with? fn #\!)
              (open-input-pipe (string-drop fn 1))
              ;; else
              (false-if-exception (open-input-file (string-strip-escapes fn))))))
-
+    
     (cond
      ((not port)
       (set-err-msg! repl "cannot open input file")
@@ -511,19 +563,19 @@ command."
      ((if (char=? (string-ref-safe fn 0) #\!)
           (not (status:exit-val (close-pipe port)))
           ;; else
-          (begin (close-input-port port) #t))
+          (begin (close-input-port port) #f))
       (set-err-msg! repl "cannot close input file")
       ERR)
      (else
       ;; Success
-      (set-filename! repl (get-last-filename))
+      (set-modified! repl #f)
       (unless (get-scripted repl)
         (format (current-error-port) "~a~%" size))
       0))))
 
 (define-method (op-filename (repl <EdRepl>) addr fname suffix append)
   "Store fname as a filename for future saving operations."
-  (set-filename! repl fname)
+  ;; All the work happens in the parser.
   0)
 
 (define-method (op-help (repl <EdRepl>) addr special suffix append)
@@ -549,6 +601,7 @@ command."
   ;; The spec says to treat zero as one.
   ;; FIXME: add strict address checking
   (ed-append repl (max 0 (1- (first addr))) txt)
+  (set-modified! repl #t)
 
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
@@ -565,6 +618,7 @@ command."
   ;; Ed line numbers are 1-indexed and are start (inclusive)
   ;; and end (inclusive). Zero is invalid.
   (ed-join repl (1- (first addr)) (second addr))
+  (set-modified! repl #t)
 
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
@@ -572,9 +626,25 @@ command."
     (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
   0)
 
+(define-method (op-line-number (repl <EdRepl>) addr special suffix append)
+  "Print the addressed line."
+  (display (last addr))
+  (newline)
+  0)
+
 (define-method (op-list (repl <EdRepl>) addr special suffix append)
   "Display the addressed lines."
   (ed-repl-display-lines repl (first addr) (1+ (second addr)) "l")
+  0)
+
+(define-method (op-mark (repl <EdRepl>) addr name suffix append)
+  ;; Ed bookmarks are 1-indexed.  CBuffer bookmarks are zero-indexed.
+  (ed-mark repl (1- (last addr)) name)
+  (unless (string-null? suffix)
+    ;; When displaying a line after an append, print only
+    ;; the current line.
+    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl))
+                           suffix))
   0)
 
 (define-method (op-move (repl <EdRepl>) addr addr3 suffix append)
@@ -592,11 +662,18 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   ;; 1-indexed line after which to move the lines.  Zero indicates
   ;; that the lines are to be inserted before the 1st line.
   (ed-move repl (1- (first addr)) (second addr) addr3)
+  (set-modified! repl #t)
 
   (unless (string-null? suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
     (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+  0)
+
+(define-method (op-null (repl <EdRepl>) addr addr3 suffix append)
+  "Print the addressed line."
+  (set-line-cur! repl (last addr))
+  (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) "p")
   0)
 
 (define-method (op-number (repl <EdRepl>) addr special suffix append)
@@ -611,60 +688,94 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   (set-prompt-active! repl (not (get-prompt-active repl)))
   0)
 
-(define-method (op-line-number (repl <EdRepl>) addr special suffix append)
-  "Print the addressed line."
-  (display (last addr))
-  (newline)
+(define-method (op-shell-escape (repl <EdRepl>) addr shcmd suffix append)
+  ;; So, if shcmd begins with '!', replace that with the text of the
+  ;; last shell command.  The spec says "the unescaped character '%'"
+  ;; shall be replace with the remembered pathname.  So I guess we
+  ;; should interpret some variety of string escapes.
+
+  ;; FIXME: actually do the escape.
+  (system shcmd)
   0)
 
-(define-method (op-mark (repl <EdRepl>) addr name suffix append)
-  ;; Ed bookmarks are 1-indexed.  CBuffer bookmarks are zero-indexed.
-  (ed-mark repl (1- (last addr)) name)
-  (unless (string-null? suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl))
-			   suffix))
-  0)
+(define-method (op-quit (repl <EdRepl>) addr special suffix append)
+  (if (and (log-debug-pk (get-modified repl))
+           (not (eqv? (log-debug-pk (get-last-command repl)) #\q)))
+      (begin
+        (set-err-msg! repl "there are unsaved changes")
+        (set-status! repl ERR)
+        ERR)
+      ;; else
+      (set-status! repl QUIT)))
 
-(define-method (op-null (repl <EdRepl>) addr addr3 suffix append)
-  "Print the addressed line."
-  (set-line-cur! repl (last addr))
-  (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) "p")
-  0)
+(define-method (op-quit-without-checking (repl <EdRepl>) addr special suffix append)
+  (set-status! repl QUIT))
+
+(define-method (op-write (repl <EdRepl>) addr fn suffix append)
+  ;; This whole function is a bit garbage, because it tried to hard
+  ;; to merge the popen and fopen into one path.
+  (let ((size 0)
+        (port
+         (if (string-starts-with? fn #\!)
+             (open-output-pipe (string-drop fn 1))
+             ;; else
+             (false-if-exception (open-output-file (string-strip-escapes fn))))))
+    
+    (cond
+     ((not port)
+      (set-err-msg! repl "cannot open output file")
+      (set-status! repl ERR)
+      ERR)
+     ((< ((lambda (x) (set! size x) x) (ed-write repl (1- (first addr)) (second addr) port)) 0)
+      ERR)
+     ((if (string-starts-with? fn #\!)
+          (not (status:exit-val (close-pipe port)))
+          ;; else
+          (begin (close-output-port port) #f))
+      (set-err-msg! repl "cannot close output file")
+      (set-status! repl ERR)
+      ERR)
+     (else
+      ;; Success
+      (set-modified! repl #f)
+      (log-debug-pk (get-modified repl))
+      (unless (get-scripted repl)
+        (format (current-error-port) "~a~%" size))
+      0))))
+
 
 (define rpl (make-ed-repl))
 (set-dispatch-table! rpl
-                   `((#\a    1 dot   #f    #t null          #t #t  ,op-append)
-                     (#\c    2 dot   dot   #t null          #t #t  ,op-change)
-                     (#\d    2 dot   dot   #f null          #t #f  ,op-delete)
-                     (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
-                     (#\E    0 #f    #f    #f file          #f #f  op-edit-without-checking)
-                     (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
-                     (#\g    2 1     $     #f regex+cmd     #t #f  op-global)
-                     (#\G    2 1     $     #f regex         #t #f  op-global-interactive)
-                     (#\h    0 #f    #f    #f null          #t #f  ,op-help)
-                     (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
-                     (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
-                     (#\j    2 dot   dot+1 #f null          #t #f  ,op-join)
-                     (#\k    1 dot   #f    #f bookmark      #t #f  ,op-mark)
-                     (#\l    2 dot   dot   #f null          #t #f  ,op-list)
-                     (#\m    2 dot   dot   #t address       #t #f  ,op-move)
-                     (#\n    2 dot   dot   #f null          #t #f  ,op-number)
-                     (#\p    2 dot   dot   #f null          #t #f  ,op-print)
-                     (#\P    0 #f    #f    #f null          #t #f  ,op-prompt)
-                     (#\q    0 #f    #f    #f null          #f #f  op-quit)
-                     (#\Q    0 #f    #f    #f null          #f #f  op-quit-without-checking)
-                     (#\r    1 $     #f    #t file          #f #f  op-read)
-                     (#\s    2 dot   dot   #f regex+replace #t #f  op-substitute)
-                     (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
-                     (#\u    0 #f    #f    #f null          #t #f  op-undo)
-                     (#\v    2 1     $     #f regex+cmd     #t #f  op-global-non-matched)
-                     (#\V    2 1     $     #f regex         #t #f  op-global-interactive-non-matched)
-                     (#\w    2 1     $     #f file          #f #f  op-write)
-                     (#\=    1 $     #f    #f null          #t #f  ,op-line-number)
-                     (#\!    0 #f    #f    #f shell         #f #f  op-shell-escape)
-                     (#\nul  1 dot+1 #f    #f null          #t #f  ,op-null)))
+                     `((#\a    1 dot   #f    #t null          #t #t  ,op-append)
+                       (#\c    2 dot   dot   #t null          #t #t  ,op-change)
+                       (#\d    2 dot   dot   #f null          #t #f  ,op-delete)
+                       (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
+                       (#\E    0 #f    #f    #f file          #f #f  ,op-edit-without-checking)
+                       (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
+                       (#\g    2 1     $     #f regex+cmd     #t #f  op-global)
+                       (#\G    2 1     $     #f regex         #t #f  op-global-interactive)
+                       (#\h    0 #f    #f    #f null          #t #f  ,op-help)
+                       (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
+                       (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
+                       (#\j    2 dot   dot+1 #f null          #t #f  ,op-join)
+                       (#\k    1 dot   #f    #f bookmark      #t #f  ,op-mark)
+                       (#\l    2 dot   dot   #f null          #t #f  ,op-list)
+                       (#\m    2 dot   dot   #t address       #t #f  ,op-move)
+                       (#\n    2 dot   dot   #f null          #t #f  ,op-number)
+                       (#\p    2 dot   dot   #f null          #t #f  ,op-print)
+                       (#\P    0 #f    #f    #f null          #t #f  ,op-prompt)
+                       (#\q    0 #f    #f    #f null          #f #f  ,op-quit)
+                       (#\Q    0 #f    #f    #f null          #f #f  ,op-quit-without-checking)
+                       (#\r    1 $     #f    #t file          #f #f  op-read)
+                       (#\s    2 dot   dot   #f regex+replace #t #f  op-substitute)
+                       (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
+                       (#\u    0 #f    #f    #f null          #t #f  op-undo)
+                       (#\v    2 1     $     #f regex+cmd     #t #f  op-global-non-matched)
+                       (#\V    2 1     $     #f regex         #t #f  op-global-interactive-non-matched)
+                       (#\w    2 1     $     #f file          #f #f  ,op-write)
+                       (#\=    1 $     #f    #f null          #t #f  ,op-line-number)
+                       (#\!    0 #f    #f    #f shell         #f #f  ,op-shell-escape)
+                       (#\nul  1 dot+1 #f    #f null          #t #f  ,op-null)))
 
-(while #t
-  (ed-repl-do rpl))
+(while (ed-repl-do rpl)
+  #t)
