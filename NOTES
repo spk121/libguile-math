@@ -1,7 +1,23 @@
 PATTERNS
 
+What are all the things I've written that might be of use here?
+
 from cat
 - A procedure like for-each that iterates on binary blocks read from a port
 - A syntax that takes a list of filenames and iterates on ports opened on those filenames. '-' would be current input port
 - A procedure that reads bytes from a port and sends them through a custom printer
 
+a ustar archiver
+- makes an archive from various files / ports / bytevectors / strings
+- extract entries in the archive as files / ports / bytevectors / strings
+
+a lzw compression algorithm
+- lzw + ustar = pax.Z
+
+xmodem, ymodem, zmodem
+
+gif
+
+tga
+
+in-band submessages
