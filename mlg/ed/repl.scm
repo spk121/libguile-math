@@ -53,7 +53,6 @@
 (define (dispatch:append? x)    (list-ref x 7))
 (define (dispatch:op x)         (list-ref x 8))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; An <EdRepl> is a read-eval-print loop for a CBuffer.
 
@@ -252,7 +251,7 @@ FROM and TO are 1-indexed and inclusive."
         ;; (log-debug-locals)
         ((dispatch:op op) repl addr extra suffix txt)
         (set-last-command! repl c)))
-    
+
     (if (member (get-status repl) (list ERR))
         (if (get-garrulous repl)
             (begin
@@ -552,7 +551,7 @@ command."
              (open-input-pipe (string-drop fn 1))
              ;; else
              (false-if-exception (open-input-file (string-strip-escapes fn))))))
-    
+
     (cond
      ((not port)
       (set-err-msg! repl "cannot open input file")
@@ -720,7 +719,7 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
              (open-output-pipe (string-drop fn 1))
              ;; else
              (false-if-exception (open-output-file (string-strip-escapes fn))))))
-    
+
     (cond
      ((not port)
       (set-err-msg! repl "cannot open output file")
@@ -743,39 +742,39 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
         (format (current-error-port) "~a~%" size))
       0))))
 
-
 (define rpl (make-ed-repl))
-(set-dispatch-table! rpl
-                     `((#\a    1 dot   #f    #t null          #t #t  ,op-append)
-                       (#\c    2 dot   dot   #t null          #t #t  ,op-change)
-                       (#\d    2 dot   dot   #f null          #t #f  ,op-delete)
-                       (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
-                       (#\E    0 #f    #f    #f file          #f #f  ,op-edit-without-checking)
-                       (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
-                       (#\g    2 1     $     #f regex+cmd     #t #f  op-global)
-                       (#\G    2 1     $     #f regex         #t #f  op-global-interactive)
-                       (#\h    0 #f    #f    #f null          #t #f  ,op-help)
-                       (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
-                       (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
-                       (#\j    2 dot   dot+1 #f null          #t #f  ,op-join)
-                       (#\k    1 dot   #f    #f bookmark      #t #f  ,op-mark)
-                       (#\l    2 dot   dot   #f null          #t #f  ,op-list)
-                       (#\m    2 dot   dot   #t address       #t #f  ,op-move)
-                       (#\n    2 dot   dot   #f null          #t #f  ,op-number)
-                       (#\p    2 dot   dot   #f null          #t #f  ,op-print)
-                       (#\P    0 #f    #f    #f null          #t #f  ,op-prompt)
-                       (#\q    0 #f    #f    #f null          #f #f  ,op-quit)
-                       (#\Q    0 #f    #f    #f null          #f #f  ,op-quit-without-checking)
-                       (#\r    1 $     #f    #t file          #f #f  op-read)
-                       (#\s    2 dot   dot   #f regex+replace #t #f  op-substitute)
-                       (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
-                       (#\u    0 #f    #f    #f null          #t #f  op-undo)
-                       (#\v    2 1     $     #f regex+cmd     #t #f  op-global-non-matched)
-                       (#\V    2 1     $     #f regex         #t #f  op-global-interactive-non-matched)
-                       (#\w    2 1     $     #f file          #f #f  ,op-write)
-                       (#\=    1 $     #f    #f null          #t #f  ,op-line-number)
-                       (#\!    0 #f    #f    #f shell         #f #f  ,op-shell-escape)
-                       (#\nul  1 dot+1 #f    #f null          #t #f  ,op-null)))
+(set-dispatch-table!
+ rpl
+ `((#\a    1 dot   #f    #t null          #t #t  ,op-append)
+   (#\c    2 dot   dot   #t null          #t #t  ,op-change)
+   (#\d    2 dot   dot   #f null          #t #f  ,op-delete)
+   (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
+   (#\E    0 #f    #f    #f file          #f #f  ,op-edit-without-checking)
+   (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
+   (#\g    2 1     $     #f regex+cmd     #t #f  op-global)
+   (#\G    2 1     $     #f regex         #t #f  op-global-interactive)
+   (#\h    0 #f    #f    #f null          #t #f  ,op-help)
+   (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
+   (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
+   (#\j    2 dot   dot+1 #f null          #t #f  ,op-join)
+   (#\k    1 dot   #f    #f bookmark      #t #f  ,op-mark)
+   (#\l    2 dot   dot   #f null          #t #f  ,op-list)
+   (#\m    2 dot   dot   #t address       #t #f  ,op-move)
+   (#\n    2 dot   dot   #f null          #t #f  ,op-number)
+   (#\p    2 dot   dot   #f null          #t #f  ,op-print)
+   (#\P    0 #f    #f    #f null          #t #f  ,op-prompt)
+   (#\q    0 #f    #f    #f null          #f #f  ,op-quit)
+   (#\Q    0 #f    #f    #f null          #f #f  ,op-quit-without-checking)
+   (#\r    1 $     #f    #t file          #f #f  op-read)
+   (#\s    2 dot   dot   #f regex+replace #t #f  op-substitute)
+   (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
+   (#\u    0 #f    #f    #f null          #t #f  op-undo)
+   (#\v    2 1     $     #f regex+cmd     #t #f  op-global-non-matched)
+   (#\V    2 1     $     #f regex         #t #f  op-global-interactive-non-matched)
+   (#\w    2 1     $     #f file          #f #f  ,op-write)
+   (#\=    1 $     #f    #f null          #t #f  ,op-line-number)
+   (#\!    0 #f    #f    #f shell         #f #f  ,op-shell-escape)
+   (#\nul  1 dot+1 #f    #f null          #t #f  ,op-null)))
 
 (while (ed-repl-do rpl)
   #t)
