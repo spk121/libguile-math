@@ -193,7 +193,7 @@ FROM and TO are 1-indexed and inclusive."
   "Gets the last data line using Ed's 1-indexed coordinate system."
   (get-line-count repl))
 
-(define-method (ed-repl-do (repl <EdRepl>))
+(define-method (ed-repl-do (repl <EdRepl>) PortOrStr)
   (when (get-verbose repl)
     (%dump-cbuffer repl))
   (when (get-prompt-active repl)
@@ -203,7 +203,9 @@ FROM and TO are 1-indexed and inclusive."
   (set-status! repl OK)
 
   ;; Read in one line of text from the user.
-  (let ((port (open-input-string (read-line (current-input-port)))))
+  (let ((port (open-input-string (if (string? PortOrStr)
+                                     PortOrStr
+                                     (read-line (current-input-port))))))
 
     (and-let* ((addr-range (ed-repl-parse-address-range repl port))
                (c (read-char-safe port))
@@ -225,9 +227,9 @@ FROM and TO are 1-indexed and inclusive."
                     ((file)
                      (ed-repl-parse/validate-filename repl port))
                     ((regex)
-                     (ed-repl-parse-regex))
+                     (ed-repl-parse-regex repl port))
                     ((regex+cmd)
-                     (ed-repl-parse-regex+cmd))
+                     (ed-repl-parse-regex+cmd repl port))
                     ((regex+replace)
                      (ed-repl-parse-regex+replace))
                     ((shell)
@@ -347,8 +349,22 @@ Returns a string containing zero or more of 'l', 'n', and 'p'."
         ;; else
         out)))
 
+(define-method (ed-repl-parse-regex (repl <EdRepl>) port)
+  "Returns the regex string, which
+begins and ends with the delimeter characters (usually '/')."
+  (write (current-source-location))
+  (log-debug-pk (read-regex-string port)))
+
+(define-method (ed-repl-parse-regex+cmd (repl <EdRepl>) port)
+  "Returns a pair.  The CAR is the regex string, which
+begins and ends with the delimeter characters (usually '/').  The CDR
+is the remainder of the string."
+  (cons (read-regex-string port)
+        (read-string port)))
+
 (define-method (ed-repl-parse-shell (repl <EdRepl>) port)
-  "Extracts a shell from the given port.It will return the string, or #f on failure."
+  "Extracts a shell from the given port.  It will return the string,
+or #f on failure."
   (let ((txt ""))
     (if (not (eof-object? (peek-char port)))
         (set! txt (read-whitespace port)))
@@ -577,6 +593,72 @@ command."
   ;; All the work happens in the parser.
   0)
 
+(define-method (op-global (repl <EdRepl>) addr regex+cmd suffix append)
+  (%op-global repl addr regex+cmd #t #f))
+
+(define-method (op-global-non-matched (repl <EdRepl>) addr regex+cmd suffix append)
+  (%op-global repl addr regex+cmd #f #f))
+
+(define-method (op-global-interactive (repl <EdRepl>) addr regex suffix append)
+  (%op-global repl addr (cons regex "") #t #t))
+
+(define-method (op-global-interactive-non-matched (repl <EdRepl>) addr regex suffix append)
+  (%op-global repl addr (cons regex "") #f #t))
+
+(define-method (%op-global (repl <EdRepl>) addr regex+cmd match? interactive?)
+  (log-debug-locals)
+  (let ((delimited-regex-string (car regex+cmd))
+        (cmd-string (cdr regex+cmd)))
+    (let ((regex-string
+           (if (not delimited-regex-string)
+               #f
+               ;; else
+               (if (= 2 (string-length delimited-regex-string))
+                   (begin
+                     ;; FIXME, set regex to last successful regex
+                     (throw 'fixme))
+                   ;; else
+                   (substring delimited-regex-string
+                              1
+                              (1- (string-length delimited-regex-string)))))))
+    (log-debug-locals)
+    (if regex-string
+        (begin
+          (if match?
+              (ed-global-mark repl
+                              (1- (first addr))
+                              (second addr)
+                              regex-string)
+              ;; else
+              (ed-global-mark-unmatched repl
+                                        (1- (first addr))
+                                        (second addr)
+                                        regex-string))
+          ;; N.B.  In this function below, we actually recurse back
+          ;; into ed-repl-do, but this time we get the commands from a
+          ;; the cmd-string instead of the current input port.
+          (ed-global-for-each repl
+                              (lambda (repl)
+                                (ed-repl-do
+                                 repl
+                                 (if interactive?
+                                     (begin
+                                       (when (get-prompt-active repl)
+                                         (set-prompt-string! repl "global>"))
+                                       (display (get-text-cur repl))
+                                       (newline)
+                                       (current-input-port))
+
+                                     cmd-string))))
+          (set-prompt-string! repl "command>")
+          (ed-global-clear repl))
+
+        ;; else
+        (begin
+          (set-err-msg! repl (get-read-regex-string-err))
+          (set-status! ERR)
+          ERR)))))
+
 (define-method (op-help (repl <EdRepl>) addr special suffix append)
   "Display the last error message."
   (display (get-err-msg repl))
@@ -751,8 +833,8 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
    (#\e    0 #f    #f    #f file          #f #f  ,op-edit)
    (#\E    0 #f    #f    #f file          #f #f  ,op-edit-without-checking)
    (#\f    0 #f    #f    #f file          #f #f  ,op-filename)
-   (#\g    2 1     $     #f regex+cmd     #t #f  op-global)
-   (#\G    2 1     $     #f regex         #t #f  op-global-interactive)
+   (#\g    2 1     $     #f regex+cmd     #t #f  ,op-global)
+   (#\G    2 1     $     #f regex         #t #f  ,op-global-interactive)
    (#\h    0 #f    #f    #f null          #t #f  ,op-help)
    (#\H    0 #f    #f    #f null          #t #f  ,op-help-mode)
    (#\i    1 dot   #f    #t null          #t #t  ,op-insert)
@@ -769,12 +851,12 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
    (#\s    2 dot   dot   #f regex+replace #t #f  op-substitute)
    (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
    (#\u    0 #f    #f    #f null          #t #f  op-undo)
-   (#\v    2 1     $     #f regex+cmd     #t #f  op-global-non-matched)
-   (#\V    2 1     $     #f regex         #t #f  op-global-interactive-non-matched)
+   (#\v    2 1     $     #f regex+cmd     #t #f  ,op-global-non-matched)
+   (#\V    2 1     $     #f regex         #t #f  ,op-global-interactive-non-matched)
    (#\w    2 1     $     #f file          #f #f  ,op-write)
    (#\=    1 $     #f    #f null          #t #f  ,op-line-number)
    (#\!    0 #f    #f    #f shell         #f #f  ,op-shell-escape)
    (#\nul  1 dot+1 #f    #f null          #t #f  ,op-null)))
 
-(while (ed-repl-do rpl)
+(while (ed-repl-do rpl (current-input-port))
   #t)
