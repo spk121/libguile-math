@@ -126,6 +126,10 @@
   (m_LastCommand #:init-value #\null
                  #:getter get-last-command
                  #:setter set-last-command!)
+
+  (m_LastReplacementString #:init-value #f
+                           #:getter get-last-replacement-string
+                           #:setter set-last-replacement-string!)
   )
 
 (define (make-ed-repl)
@@ -151,10 +155,8 @@
 
 (define-method (ed-repl-construct-bookmark-callback (repl <EdRepl>))
   (lambda (name)
-    (log-debug "In bookmark callback ~a ~a" repl name)
     ;; CBuffer bookmarks are zero-indexed. Ed bookmarks are 1-indexed.
     (let ((pos (bookmark-get (get-bookmarks repl) name)))
-      (log-debug-locals)
       (if pos
           (1+ (car pos))
           #f))))
@@ -231,7 +233,7 @@ FROM and TO are 1-indexed and inclusive."
                     ((regex+cmd)
                      (ed-repl-parse-regex+cmd repl port))
                     ((regex+replace)
-                     (ed-repl-parse-regex+replace))
+                     (ed-repl-parse-regex+replace repl port))
                     ((shell)
                      (ed-repl-parse-shell repl port))
                     (else
@@ -250,7 +252,6 @@ FROM and TO are 1-indexed and inclusive."
                       '())))
         ;; So, all the parsing is done, and we can finally
         ;; run a command.
-        ;; (log-debug-locals)
         ((dispatch:op op) repl addr extra suffix txt)
         (set-last-command! repl c)))
 
@@ -353,7 +354,7 @@ Returns a string containing zero or more of 'l', 'n', and 'p'."
   "Returns the regex string, which
 begins and ends with the delimeter characters (usually '/')."
   (write (current-source-location))
-  (log-debug-pk (read-regex-string port)))
+  (read-regex-string port))
 
 (define-method (ed-repl-parse-regex+cmd (repl <EdRepl>) port)
   "Returns a pair.  The CAR is the regex string, which
@@ -361,6 +362,83 @@ begins and ends with the delimeter characters (usually '/').  The CDR
 is the remainder of the string."
   (cons (read-regex-string port)
         (read-string port)))
+
+(define-method (ed-repl-parse-regex+replace (repl <EdRepl>) port)
+  "Returns a list.  The first element the regex string, which
+begins and ends with the delimeter characters (usually '/').  The second
+element is the replacement string, which may or may not end with the
+delimiter.  The third element are any regex flags."
+  (let* ((regex-string (read-regex-string port))
+         (delimiter (string-ref-safe regex-string 0)))
+    (cond
+     ((char=? delimiter #\null)
+      ;; The regex was invalid, so there is no need to look for a
+      ;; replacement string.
+      (set-err-msg! repl (get-read-regex-string-err))
+      (set-status! repl ERR)
+      #f)
+
+     ;; FIXME: handle empty regex. Should I use the previous
+     ;; regex in that case?
+
+     (else
+      ;; Trim off the delimiters.
+      (set! regex-string
+        (substring regex-string 1 (1- (string-length regex-string))))
+
+      ;; A valid regex was found, so now look for a replacement
+      ;; string.
+      (let ((replacment-string (read-replacement port delimiter)))
+        (cond
+         ((eof-object? replacement-string)
+          ;; No replacement string was found
+          (set-err-msg! repl "no replacement string found")
+          (set-status! repl ERR)
+          #f)
+
+         ((not replacement-string)
+          ;; The replacement string was invalid.
+          (set-err-msg! repl (get-read-replacement-string-err))
+          (set-status! repl ERR)
+          #f)
+
+         ((and (or (string=? replacement-string "%")
+                   (string=? replacement-string (string #\% delimiter)))
+               (not (get-last-replacement-string repl)))
+          ;; The replacement string is the special '%', which
+          ;; means we should re-use the previous valid replacement
+          ;; string, but no previous replacement string was found.
+          (set-err-msg! repl "no previous valid replacement string")
+          (set-status! repl ERR)
+          #f)
+
+         (else
+          ;; A valid replacement string was found.
+          ;; Trim off the delimiter.
+          (let ((ends-with-delimiter?
+                 (char=? delimiter
+                         (string-ref replacement-string
+                                     (1- (string-length replacement-string))))))
+            (when ends-with-delimiter?
+              (set! replacement-string (string-drop-right replacement-string 1)))
+            ;; The replacement-string is the special '%', which
+            ;; indicates that the previous replacement string should
+            ;; be used.
+            (when (string=? replacement-string "%")
+              (set! replacement-string (get-last-replacement-string repl)))
+
+            ;; If it ends with the delimiter, then search for flags
+            (cond
+             ((not ends-with-delimiter?)
+              ;; It doesn't end with a delimiter, so there are no flags.
+              (list regex-string replacement-string ""))
+
+             (else
+              ;; Search for flags.
+              (list
+               regex-string
+               replacement-string
+               (read-filter "0123456789glnp" port))))))))))))
 
 (define-method (ed-repl-parse-shell (repl <EdRepl>) port)
   "Extracts a shell from the given port.  It will return the string,
@@ -484,7 +562,6 @@ C."
   (warn-if-false (list-of-integers? addr))
   (warn-if-false (list-of-strings? append))
   (warn-if-false (string? suffix))
-  ;; (log-debug-locals)
 
   ;; Move the current position out of the way, for the moment.
   (set-line-cur! repl 0)
@@ -509,7 +586,6 @@ C."
   "Copies the addressed lines after the line addressed by the third address.
 If the 3rd address is zero, it copies the addressed lines to the
 beginning."
-  (log-debug-locals)
   ;; Move the current position out of the way, for the moment.
   (set-line-cur! repl 0)
 
@@ -606,7 +682,6 @@ command."
   (%op-global repl addr (cons regex "") #f #t))
 
 (define-method (%op-global (repl <EdRepl>) addr regex+cmd match? interactive?)
-  (log-debug-locals)
   (let ((delimited-regex-string (car regex+cmd))
         (cmd-string (cdr regex+cmd)))
     (let ((regex-string
@@ -621,7 +696,6 @@ command."
                    (substring delimited-regex-string
                               1
                               (1- (string-length delimited-regex-string)))))))
-    (log-debug-locals)
     (if regex-string
         (begin
           (if match?
@@ -769,6 +843,19 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   (set-prompt-active! repl (not (get-prompt-active repl)))
   0)
 
+(define-method (op-quit (repl <EdRepl>) addr special suffix append)
+  (if (and (get-modified repl)
+           (not (eqv? (get-last-command repl)) #\q))
+      (begin
+        (set-err-msg! repl "there are unsaved changes")
+        (set-status! repl ERR)
+        ERR)
+      ;; else
+      (set-status! repl QUIT)))
+
+(define-method (op-quit-without-checking (repl <EdRepl>) addr special suffix append)
+  (set-status! repl QUIT))
+
 (define-method (op-shell-escape (repl <EdRepl>) addr shcmd suffix append)
   ;; So, if shcmd begins with '!', replace that with the text of the
   ;; last shell command.  The spec says "the unescaped character '%'"
@@ -779,18 +866,11 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   (system shcmd)
   0)
 
-(define-method (op-quit (repl <EdRepl>) addr special suffix append)
-  (if (and (log-debug-pk (get-modified repl))
-           (not (eqv? (log-debug-pk (get-last-command repl)) #\q)))
-      (begin
-        (set-err-msg! repl "there are unsaved changes")
-        (set-status! repl ERR)
-        ERR)
-      ;; else
-      (set-status! repl QUIT)))
-
-(define-method (op-quit-without-checking (repl <EdRepl>) addr special suffix append)
-  (set-status! repl QUIT))
+(define-method (op-substitute (repl <EdRepl>) addr regex+replace suffix append)
+  "Searched the addresses lines for occurrences of the given regular
+expression and replace either the first or all (non-overlapped) matched strings
+with the replacement."
+  'fixme)
 
 (define-method (op-write (repl <EdRepl>) addr fn suffix append)
   ;; This whole function is a bit garbage, because it tried to hard
@@ -807,7 +887,8 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
       (set-err-msg! repl "cannot open output file")
       (set-status! repl ERR)
       ERR)
-     ((< ((lambda (x) (set! size x) x) (ed-write repl (1- (first addr)) (second addr) port)) 0)
+     ((< ((lambda (x) (set! size x) x)
+          (ed-write repl (1- (first addr)) (second addr) port)) 0)
       ERR)
      ((if (string-starts-with? fn #\!)
           (not (status:exit-val (close-pipe port)))
@@ -819,7 +900,7 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
      (else
       ;; Success
       (set-modified! repl #f)
-      (log-debug-pk (get-modified repl))
+      (get-modified repl)
       (unless (get-scripted repl)
         (format (current-error-port) "~a~%" size))
       0))))
@@ -848,7 +929,7 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
    (#\q    0 #f    #f    #f null          #f #f  ,op-quit)
    (#\Q    0 #f    #f    #f null          #f #f  ,op-quit-without-checking)
    (#\r    1 $     #f    #t file          #f #f  op-read)
-   (#\s    2 dot   dot   #f regex+replace #t #f  op-substitute)
+   (#\s    2 dot   dot   #f regex+replace #t #f  ,op-substitute)
    (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
    (#\u    0 #f    #f    #f null          #t #f  op-undo)
    (#\v    2 1     $     #f regex+cmd     #t #f  ,op-global-non-matched)
