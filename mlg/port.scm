@@ -1008,7 +1008,7 @@ give a text that describes the reason for the failure."
   *read-replacement-string-err*)
 
 (define* (read-replacement-string #:optional (Port (current-input-port))
-                                  #:optional (Delimiter #\/))
+                                  (Delimiter #\/))
   "Extracts the text of a delimited replacement expression,
 as might appear in the 'ed' or 'sed' command 's/RE/replacement/flags'.
 It is expected the the next character available on Port will be the

@@ -1,29 +1,55 @@
+;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
+;;; (mlg characters) - more helper functions for characters
+;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;;
+;;; This program is free software: you can redistribute it and/or
+;;; modify it under the terms of the GNU General Public License as
+;;; published by the Free Software Foundataion, either version 3 of
+;;; this License, or (at your option) any later version.
+;;;
+;;; This program is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with this program.  If not, see
+;;; <http://www.gnu.org/licenses/>
+
 (define-module (mlg characters)
-  #:export (isalnum?
-	    isalpha?
-	    iscntrl?
-	    isdigit?
-	    isgraph?
-	    islower?
-	    isprint?
-	    ispunct?
-	    isspace?
-	    isupper?
-	    isxdigit?
-	    ascii-isalnum?
-	    ascii-isalpha?
-	    ascii-iscntrl?
-	    ascii-isdigit?
-	    ascii-isgraph?
-	    ascii-islower?
-	    ascii-isprint?
-	    ascii-ispunct?
-	    ascii-isspace?
-	    ascii-isupper?
-	    ascii-isxdigit?
-	    tolower
-	    toupper
-	    ))
+  #:use-module (mlg numval)
+  #:export (char->numeric-value
+            isalnum?
+            isalpha?
+            iscntrl?
+            isdigit?
+            isgraph?
+            islower?
+            isprint?
+            ispunct?
+            isspace?
+            isupper?
+            isxdigit?
+            ascii-isalnum?
+            ascii-isalpha?
+            ascii-iscntrl?
+            ascii-isdigit?
+            ascii-isgraph?
+            ascii-islower?
+            ascii-isprint?
+            ascii-ispunct?
+            ascii-isspace?
+            ascii-isupper?
+            ascii-isxdigit?
+            tolower
+            toupper
+            ))
+
+(define (char->numeric-value c)
+  "Given a character C, return a numeric value associated with that
+character, or #f, if the character is not associated with a numeric
+value."
+  (assv-ref *unicode-numval-alist* c))
 
 (define (isalnum? c)
   "Return #t if character C is alphabetic or numeric."
@@ -39,7 +65,7 @@
 
 (define (isdigit? c)
   "Return #t if C is a digit."
-  (char-set-contains? char-set:digit c))  
+  (char-set-contains? char-set:digit c))
 
 (define (isgraph? c)
   "Return #t if C is a graphic character."
