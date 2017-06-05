@@ -1058,7 +1058,7 @@ no valid pattern string was found."
       (if (char=? #\null (peek-2nd-char-safe Port))
           (begin
             (set! *read-replacement-string-err* "trailing backslash")
-            (unread-string txt port)
+            (unread-string txt Port)
             #f)
           ;; Else this is a character escape.
           (begin

@@ -167,7 +167,7 @@ to LEnd (1-indexed, inclusive), using the format described in Suffix"
   (warn-if-false (integer-nonnegative? LStart))
   (warn-if-false (integer-nonnegative? LEnd))
   (warn-if-false (string? Suffix))
-  
+
   (do ((i LStart (1+ i)))
       ((> i LEnd))
     (let ((str (get-text-line Repl (1- i))))
@@ -567,15 +567,19 @@ A Suffix of 'l', 'n', or 'p' is allowed."
                            Suffix))
   0)
 
-(define-method (op-change (repl <EdRepl>) addr special suffix append)
-  "Appends lines after the given address."
-  (warn-if-false (list-length-2? addr))
-  (warn-if-false (list-of-integers? addr))
-  (warn-if-false (list-of-strings? append))
-  (warn-if-false (string? suffix))
+(define-method (op-change (Repl <EdRepl>) AddrList Special Suffix StrList)
+  "Changes the lines bracketed by the 1-indexed, inclusive line
+numbers held as the first two elements of AddrList. Those lines are
+deleted and replaced with StrList, a list of zero or more strings.  An
+address of zero is valid, and will be interpreted as address 1.
 
-  ;; Move the current position out of the way, for the moment.
-  (set-line-cur! repl 0)
+The current line number will become the address of the last changed
+line, or, if STRLIST was an empty list, to the last deleted line.
+
+A Suffix of 'l', 'n', or 'p' is allowed."
+  (warn-if-false (list-of-integers-length-2? AddrList))
+  (warn-if-false (list-of-strings? StrList))
+  (warn-if-false (string? Suffix))
 
   ;; The CBuffer primitive wants the zero-indexed start line
   ;; (inclusive) and zero-indexed end line (exclusive).
@@ -583,14 +587,16 @@ A Suffix of 'l', 'n', or 'p' is allowed."
   ;; The Ed address is a 1-indexed start line (inclusive) and a
   ;; 1-indexed end line (inclusive). As an special case, zero is
   ;; mapped to one.
-  (let ((start (1- (max 1 (first addr))))
-        (end (max 1 (second addr))))
-    (ed-change repl start end append))
-  (set-modified! repl #t)
-  (unless (string-null? suffix)
+  (let ((start (1- (max 1 (first AddrList))))
+        (end (max 1 (second AddrList))))
+    (replace-lines Repl start end StrList))
+  (set-modified! Repl #t)
+  (unless (string-null? Suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+    (ed-repl-display-lines Repl
+                           (1+ (get-line-cur Repl))
+                           (1+ (get-line-cur Repl)) Suffix))
   0)
 
 (define-method (op-copy (repl <EdRepl>) addr addr3 suffix append)
@@ -766,7 +772,7 @@ command."
   ;; So in this case Ed address = CBuffer address - 1
   ;; The spec says to treat zero as one.
   ;; FIXME: add strict address checking
-  (ed-append repl (max 0 (1- (first addr))) txt)
+  (insert-lines repl (max 0 (1- (first addr))) txt)
   (set-modified! repl #t)
 
   (unless (string-null? suffix)
@@ -896,11 +902,13 @@ with the replacement."
 (define-method (op-undo (Repl <EdRepl>) Addr Special Suffix Append)
   "Undo the last mutator operation."
   (if (undo Repl)
-      (unless (string-null? Suffix)
-        (ed-repl-display-lines Repl
-                               (+ 1 (get-line-cur Repl))
-                               (+ 1 (get-line-cur Repl))
-                               Suffix))
+      (begin
+        (set-modified! Repl #t)
+        (unless (string-null? Suffix)
+          (ed-repl-display-lines Repl
+                                 (+ 1 (get-line-cur Repl))
+                                 (+ 1 (get-line-cur Repl))
+                                 Suffix)))
       ;; else
       (begin
         (set-err-msg! Repl "could not undo")
