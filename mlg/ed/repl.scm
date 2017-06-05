@@ -893,6 +893,19 @@ with the replacement."
         (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) flags)))
   0)
 
+(define-method (op-undo (Repl <EdRepl>) Addr Special Suffix Append)
+  "Undo the last mutator operation."
+  (if (undo Repl)
+      (unless (string-null? Suffix)
+        (ed-repl-display-lines Repl
+                               (+ 1 (get-line-cur Repl))
+                               (+ 1 (get-line-cur Repl))
+                               Suffix))
+      ;; else
+      (begin
+        (set-err-msg! Repl "could not undo")
+        (set-status! Repl ERR))))
+
 (define-method (op-write (repl <EdRepl>) addr fn suffix append)
   ;; This whole function is a bit garbage, because it tried to hard
   ;; to merge the popen and fopen into one path.
@@ -952,7 +965,7 @@ with the replacement."
    (#\r    1 $     #f    #t file          #f #f  op-read)
    (#\s    2 dot   dot   #f regex+replace #t #f  ,op-substitute)
    (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
-   (#\u    0 #f    #f    #f null          #t #f  op-undo)
+   (#\u    0 #f    #f    #f null          #t #f  ,op-undo)
    (#\v    2 1     $     #f regex+cmd     #t #f  ,op-global-non-matched)
    (#\V    2 1     $     #f regex         #t #f  ,op-global-interactive-non-matched)
    (#\w    2 1     $     #f file          #f #f  ,op-write)
