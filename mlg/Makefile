@@ -1,5 +1,5 @@
 SCM_SRC = math.scm utils.scm
-C_SRC = math.c journal.c
+C_SRC = math.c journal.c strings.c
 C_OBJ := $(patsubst %.c,%.o,$(C_SRC))
 CFLAGS = -g -Wall `pkg-config --cflags guile-2.0 libsystemd` -fpic
 LIBS = `pkg-config --libs guile-2.0 libsystemd`

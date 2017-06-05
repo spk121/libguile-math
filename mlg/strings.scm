@@ -21,7 +21,8 @@
   #:use-module (ice-9 regex)
   #:use-module (mlg assert)
   #:use-module (mlg logging)
-  #:export (string-ends-with?
+  #:export (string-crc16
+            string-ends-with?
             string->format-escaped-string
             string-get-first-digit
             string-ref-safe
@@ -104,7 +105,7 @@ Flags is a string consisting of one or more of
                (start 0)
                (output ""))
       (let ((match-struct (string-match RegexString String start)))
-        (log-debug-locals)
+        ;; (log-debug-locals)
         (cond
          ((not match-struct)
           ;; There is no match, so append the remainder of the input
@@ -131,7 +132,7 @@ Flags is a string consisting of one or more of
                                               start
                                               (match:start match-struct))))
                    (let ((c (string-ref-safe ReplacementString j)))
-                     (log-debug-locals)
+                     ;; (log-debug-locals)
                      (cond
                       ((char=? c #\null)
                        rstr)
@@ -244,3 +245,5 @@ Dollar signs will be escaped, as well."
        (string-append prev (string c)))))
    ""
    (string-normalize-nfc str)))
+
+(load-extension "libguile-mlg" "init_strings_lib")

@@ -731,7 +731,7 @@ is found.  Return the charcters read as a string."
     (if (member char (string->list str))
         (begin
           (read-char port)
-          (loop (string-append flags (string char))
+          (loop (string-append out (string char))
                 (peek-char-safe port)))
         ;; else
         out)))

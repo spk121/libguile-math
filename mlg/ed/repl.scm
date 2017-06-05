@@ -161,15 +161,19 @@
           (1+ (car pos))
           #f))))
 
-(define-method (ed-repl-display-lines (repl <EdRepl>) from to suffix)
-  "Print a range of lines to stdout, using Ed coordinates, where both
-FROM and TO are 1-indexed and inclusive."
-  (do ((i from (1+ i)))
-      ((>= i to))
-    (let ((str (get-text-line repl (1- i))))
-      (when (member #\n (string->list suffix))
+(define-method (ed-repl-display-lines (Repl <EdRepl>) LStart LEnd Suffix)
+  "Print a range of lines to stdout from LStart (1-indexed, inclusive)
+to LEnd (1-indexed, inclusive), using the format described in Suffix"
+  (warn-if-false (integer-nonnegative? LStart))
+  (warn-if-false (integer-nonnegative? LEnd))
+  (warn-if-false (string? Suffix))
+  
+  (do ((i LStart (1+ i)))
+      ((> i LEnd))
+    (let ((str (get-text-line Repl (1- i))))
+      (when (member #\n (string->list Suffix))
         (format #t "~d~/" i))
-      (if (member #\l (string->list suffix))
+      (if (member #\l (string->list Suffix))
           (format #t "~a$~%" (string->ed-escaped-string str))
           (format #t "~a~%" str)))))
 
@@ -341,14 +345,8 @@ a single '.' on its own line"
 (define-method (ed-repl-parse/validate-suffix (repl <EdRepl>) port)
   "Some commands allow 'l' 'n' or 'p' afterward to print a result.
 Returns a string containing zero or more of 'l', 'n', and 'p'."
-  (let loop ((ret (peek-char-safe port))
-             (out ""))
-    (if (member ret (string->list "lnp"))
-        (begin
-          (read-char port)
-          (loop (peek-char-safe port) (string-append out (string ret))))
-        ;; else
-        out)))
+  (warn-if-false (input-port? port))
+  (read-filter "lnp" port))
 
 (define-method (ed-repl-parse-regex (repl <EdRepl>) port)
   "Returns the regex string, which
@@ -388,7 +386,7 @@ delimiter.  The third element are any regex flags."
 
       ;; A valid regex was found, so now look for a replacement
       ;; string.
-      (let ((replacment-string (read-replacement port delimiter)))
+      (let ((replacement-string (read-replacement-string port delimiter)))
         (cond
          ((eof-object? replacement-string)
           ;; No replacement string was found
@@ -536,10 +534,20 @@ C."
         #f)
       #t))
 
-(define-method (op-append (repl <EdRepl>) addr extra suffix txt)
-  "Appends lines after the given address."
+(define-method (op-append (Repl <EdRepl>) AddrList _ Suffix StrList)
+  "Appends StrList, a list of zero or more strings, after the
+1-indexed line number held as the 1st element of AddrList.  That
+address can be zero, which means the text will be inserted before the
+1st line.
 
-  ;; The CBuffer primitive ed-append inserts expects the line number
+The current line number will become the address of the last inserted
+line, or, if STRLIST was an empty list, the addressed line.
+
+A Suffix of 'l', 'n', or 'p' is allowed."
+  (warn-if-false (list-of-integers-length-1+? AddrList))
+  (warn-if-false (list-of-strings-length-0+? StrList))
+  (warn-if-false (string? Suffix))
+  ;; The CBuffer primitive 'insert-lines' expects the line number
   ;; where the insertions happens, and its line numbers are
   ;; zero-indexed.
 
@@ -547,13 +555,16 @@ C."
   ;; the insertion occurs. Zero means before the first line.
 
   ;; So in this case Ed address == CBuffer address
-  (ed-append repl (first addr) txt)
-  (unless (null? txt)
-    (set-modified! repl #t))
-  (unless (string-null? suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+  (insert-lines Repl (first AddrList) StrList)
+  (unless (null? StrList)
+    (set-modified! Repl #t))
+  (unless (string-null? Suffix)
+    ;; When displaying a line after an append, print only the current
+    ;; line.
+    (ed-repl-display-lines Repl
+                           (+ 1 (get-line-cur Repl))
+                           (+ 1 (get-line-cur Repl))
+                           Suffix))
   0)
 
 (define-method (op-change (repl <EdRepl>) addr special suffix append)
@@ -845,7 +856,7 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
 
 (define-method (op-quit (repl <EdRepl>) addr special suffix append)
   (if (and (get-modified repl)
-           (not (eqv? (get-last-command repl)) #\q))
+           (not (eqv? (get-last-command repl) #\q)))
       (begin
         (set-err-msg! repl "there are unsaved changes")
         (set-status! repl ERR)
@@ -859,7 +870,7 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
 (define-method (op-shell-escape (repl <EdRepl>) addr shcmd suffix append)
   ;; So, if shcmd begins with '!', replace that with the text of the
   ;; last shell command.  The spec says "the unescaped character '%'"
-  ;; shall be replace with the remembered pathname.  So I guess we
+  ;; shall be replaced with the remembered pathname.  So I guess we
   ;; should interpret some variety of string escapes.
 
   ;; FIXME: actually do the escape.
@@ -867,10 +878,20 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   0)
 
 (define-method (op-substitute (repl <EdRepl>) addr regex+replace suffix append)
-  "Searched the addresses lines for occurrences of the given regular
+  "Searched the addressed lines for occurrences of the given regular
 expression and replace either the first or all (non-overlapped) matched strings
 with the replacement."
-  'fixme)
+  (let* ((flags (third regex+replace))
+         (LModified
+          (ed-substitute repl
+                         (1- (first addr)) (second addr)
+                         (first regex+replace) (second regex+replace) flags)))
+    (if (and LModified
+             (or (string-contains flags "l")
+                 (string-contains flags "n")
+                 (string-contains flags "p")))
+        (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) flags)))
+  0)
 
 (define-method (op-write (repl <EdRepl>) addr fn suffix append)
   ;; This whole function is a bit garbage, because it tried to hard
