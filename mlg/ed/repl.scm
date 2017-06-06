@@ -142,16 +142,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Methods
 
-(define (convert-default-addr sym line-cur line-last)
+(define (convert-default-addr Sym LCur LLast)
+  (warn-if-false (integer-nonnegative? LCur))
+  (warn-if-false (integer-nonnegative? LLast))
+
   (cond
-   ((integer? sym)
-    sym)
-   ((eqv? 'dot)
-    line-cur)
-   ((eqv? '$)
-    line-last)
-   ((eqv? 'dot+1)
-    (1+ line-cur))))
+   ((integer? Sym)
+    Sym)
+   ((eqv? 'dot Sym)
+    LCur)
+   ((eqv? '$ Sym)
+    LLast)
+   ((eqv? 'dot+1 Sym)
+    (1+ LCur))))
 
 (define-method (ed-repl-construct-bookmark-callback (repl <EdRepl>))
   (lambda (name)
@@ -166,6 +169,7 @@
 to LEnd (1-indexed, inclusive), using the format described in Suffix"
   (warn-if-false (integer-nonnegative? LStart))
   (warn-if-false (integer-nonnegative? LEnd))
+  (warn-if-false (<= LStart LEnd))
   (warn-if-false (string? Suffix))
 
   (do ((i LStart (1+ i)))
@@ -199,7 +203,10 @@ to LEnd (1-indexed, inclusive), using the format described in Suffix"
   "Gets the last data line using Ed's 1-indexed coordinate system."
   (get-line-count repl))
 
-(define-method (ed-repl-do (repl <EdRepl>) PortOrStr)
+;(define-method (ed-repl-do (repl <EdRepl>) PortOrStr)
+(define (ed-repl-do repl PortOrStr)
+  (warn-if-false (cbuffer? repl))
+
   (when (get-verbose repl)
     (%dump-cbuffer repl))
   (when (get-prompt-active repl)
@@ -278,6 +285,7 @@ to LEnd (1-indexed, inclusive), using the format described in Suffix"
                                     (ed-repl-get-line-last-in-ed-coordinates repl)
                                     (ed-repl-construct-bookmark-callback repl)
                                     regex-default-cb)))
+    ;; (log-debug-locals)
     (unless addr-range
       (set-err-msg! repl (addr-get-range-error))
       (set-status! repl ERR))
@@ -291,7 +299,7 @@ to LEnd (1-indexed, inclusive), using the format described in Suffix"
                     (format #f "invalid bookmark name '~a'" name))
       #f)
      (else
-      name))))
+      (string name)))))
 
 (define-method (ed-repl-parse/validate-3rd-address (repl <EdRepl>) port)
   (let ((addr3 (ed-repl-parse-address-range repl port)))
@@ -463,16 +471,19 @@ or #f on failure."
 
 ;; If an operation takes two addresses but receives one
 ;; address, apparently, the given address is used for both.
-(define-method (ed-repl-unpack-addr-range (repl <EdRepl>) op addr-list)
-  (let ((addr-count-required (dispatch:addr-count op))
-        (addr-list-len (length addr-list))
-        (line-cur (ed-repl-get-line-cur-in-ed-coordinates repl))
-        (line-last (ed-repl-get-line-cur-in-ed-coordinates repl)))
+(define-method (ed-repl-unpack-addr-range (Repl <EdRepl>) Op AddrList)
+  (warn-if-false (list-length-9? Op))
+  (warn-if-false (list-of-integers? AddrList))
+
+  (let ((addr-count-required (dispatch:addr-count Op))
+        (addr-list-len (length AddrList))
+        (line-cur (ed-repl-get-line-cur-in-ed-coordinates Repl))
+        (line-last (ed-repl-get-line-cur-in-ed-coordinates Repl)))
 
     (cond
      ((and (= addr-count-required 0) (> addr-list-len 0))
-      (set-err-msg! repl
-                    (format #f "command ~s expects zero addresses" (dispatch:key op)))
+      (set-err-msg! Repl
+                    (format #f "command '~a' expects zero addresses" (dispatch:key Op)))
       #f)
      (else
       (let ((addr
@@ -482,24 +493,24 @@ or #f on failure."
               ((= addr-count-required 1)
                (cond
                 ((>= addr-list-len 1)
-                 (list (last addr-list)))
+                 (list (last AddrList)))
                 (else
-                 (list (convert-default-addr (dispatch:addr-start op) line-cur line-last)))))
+                 (list (convert-default-addr (dispatch:addr-start Op) line-cur line-last)))))
               ((= addr-count-required 2)
                (cond
                 ((= addr-list-len 2)
-                 addr-list)
+                 AddrList)
                 ((= addr-list-len 1)
-                 (list (last addr-list)
-                       (last addr-list)))
+                 (list (last AddrList)
+                       (last AddrList)))
                 ((= addr-list-len 0)
-                 (list (convert-default-addr (dispatch:addr-start op) line-cur line-last)
-                       (convert-default-addr (dispatch:addr-end op) line-cur line-last)))))
+                 (list (convert-default-addr (dispatch:addr-start Op) line-cur line-last)
+                       (convert-default-addr (dispatch:addr-end Op) line-cur line-last)))))
               (else
                ;; Should never reach here.
-               (set-err-msg! repl
+               (set-err-msg! Repl
                              (format #f "command ~a expects ~a addresses but received ~a addresses"
-                                     (dispatch:key op) addr-count-required addr-list-len))
+                                     (dispatch:key Op) addr-count-required addr-list-len))
                #f))))
         addr)))))
 
@@ -569,9 +580,9 @@ A Suffix of 'l', 'n', or 'p' is allowed."
 
 (define-method (op-change (Repl <EdRepl>) AddrList Special Suffix StrList)
   "Changes the lines bracketed by the 1-indexed, inclusive line
-numbers held as the first two elements of AddrList. Those lines are
-deleted and replaced with StrList, a list of zero or more strings.  An
-address of zero is valid, and will be interpreted as address 1.
+numbers held as the two elements of AddrList. Those lines are deleted
+and replaced with StrList, a list of zero or more strings.  An address
+of zero is valid, and will be interpreted as address 1.
 
 The current line number will become the address of the last changed
 line, or, if STRLIST was an empty list, to the last deleted line.
@@ -589,11 +600,11 @@ A Suffix of 'l', 'n', or 'p' is allowed."
   ;; mapped to one.
   (let ((start (1- (max 1 (first AddrList))))
         (end (max 1 (second AddrList))))
-    (replace-lines Repl start end StrList))
+    (if (null? (get-text Repl))
+        (insert-lines Repl start StrList)
+        (replace-lines Repl start end StrList)))
   (set-modified! Repl #t)
   (unless (string-null? Suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
     (ed-repl-display-lines Repl
                            (1+ (get-line-cur Repl))
                            (1+ (get-line-cur Repl)) Suffix))
@@ -622,68 +633,95 @@ beginning."
     (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
   0)
 
-(define-method (op-delete (repl <EdRepl>) addr special suffix append)
-  "Deletes the addressed lines from the buffer."
-  ;; Move the current position out of the way, for the moment.
-  (set-line-cur! repl 0)
+(define-method (op-delete (Repl <EdRepl>) AddrList Special Suffix Append)
+  "Deletes the lines bracketed by the 1-indexed, inclusive
+line numbers that are the two elements of AddrList.
+
+The current line number will become the address of the line after
+the last deleted line.  If the deleted lines are at the end of the buffer,
+the address will be the last remaining line.
+
+A Suffix if 'l', 'n', or 'p' is allowed."
+  (warn-if-false (list-of-integers-length-2? AddrList))
+  (warn-if-false (string? Suffix))
 
   ;; The CBuffer primitive wants the zero-indexed start line
   ;; (inclusive) and zero-indexed end line (exclusive).
 
   ;; The Ed address is a 1-indexed start line (inclusive) and a
   ;; 1-indexed end line (inclusive). An address of zero is invalid.
-  (ed-delete repl (1- (first addr)) (second addr))
-  (set-modified! repl #t)
-  (unless (string-null? suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+  (delete-lines Repl (1- (first AddrList)) (second AddrList))
+  (set-modified! Repl #t)
+  (unless (string-null? Suffix)
+    (ed-repl-display-lines Repl (1+ (get-line-cur Repl))
+                           (1+ (get-line-cur Repl)) Suffix))
   0)
 
-(define-method (op-edit (repl <EdRepl>) addr fn suffix append)
-  "Delete contents of buffer and read in from file or shell
-command."
-  (if (and (get-modified repl)
-           (not (eqv? (get-last-command repl) #\e)))
+(define-method (op-edit (Repl <EdRepl>) AddrList FileNameOrCmd Suffix Append)
+  "Replaces the entire contents of the buffer with either a file's
+contents or the output from a shell command.  If the file has been
+modified since its last save and the previous command was not 'e', the
+command will be rejected with an error.  If no filename is given, the
+previously used filename will be used; howver, if there is no
+previously used filaname, the command will be rejected with an error.
+
+The the tags and bookmarks will be cleared.
+The line number will be set to the last line of the buffer."
+  (warn-if-false (string? FileNameOrCmd))
+
+  (if (and (get-modified Repl)
+           (not (eqv? (get-last-command Repl) #\e)))
       (begin
-        (set-err-msg! repl "there are unsaved changes")
-        (set-status! repl ERR)
+        (set-err-msg! Repl "there are unsaved changes")
+        (set-status! Repl ERR)
         ERR)
       ;; else
-      (op-edit-without-checking repl addr fn suffix append)))
+      (op-edit-without-checking Repl AddrList FileNameOrCmd Suffix Append)))
 
-(define-method (op-edit-without-checking (repl <EdRepl>) addr fn suffix append)
-  "Delete contents of buffer and read in from file or shell command."
+(define-method (op-edit-without-checking (Repl <EdRepl>) AddrList FileNameOrCmd Suffix Append)
+  "Same as op-edit, except that it shall not check to see wheter any
+changes have been made since the last 'w' write command."
+  (warn-if-false (string? FileNameOrCmd))
+
   (let ((size 0)
         (port
-         (if (string-starts-with? fn #\!)
-             (open-input-pipe (string-drop fn 1))
+         (if (string-starts-with? FileNameOrCmd #\!)
+             (open-input-pipe (string-drop FileNameOrCmd 1))
              ;; else
-             (false-if-exception (open-input-file (string-strip-escapes fn))))))
+             (false-if-exception (open-input-file (string-strip-escapes FileNameOrCmd))))))
 
     (cond
      ((not port)
-      (set-err-msg! repl "cannot open input file")
-      (set-status! repl ERR)
-      ERR)
-     ((< ((lambda (x) (set! size x) x) (ed-edit repl port)) 0)
-      ERR)
-     ((if (char=? (string-ref-safe fn 0) #\!)
-          (not (status:exit-val (close-pipe port)))
-          ;; else
-          (begin (close-input-port port) #f))
-      (set-err-msg! repl "cannot close input file")
+      (set-err-msg! Repl (format #f "cannot open input '~a'" FileNameOrCmd))
+      (set-status! Repl ERR)
       ERR)
      (else
-      ;; Success
-      (set-modified! repl #f)
-      (unless (get-scripted repl)
-        (format (current-error-port) "~a~%" size))
-      0))))
+      (set! size (replace-all-from-port Repl port))
+      (cond
+       ((< size 0)
+        ERR)
+       ((if (char=? (string-ref-safe FileNameOrCmd 0) #\!)
+            (not (status:exit-val (close-pipe port)))
+            ;; else
+            (begin (close-input-port port) #f))
+        (set-err-msg! Repl (format #f "cannot close input '~a'" FileNameOrCmd))
+        (set-status! Repl ERR)
+        ERR)
+       (else
+        ;; Success
+        (set-modified! Repl #f)
+        (unless (get-scripted Repl)
+          (display size)
+          (newline))
+        0))))))
 
-(define-method (op-filename (repl <EdRepl>) addr fname suffix append)
+(define-method (op-filename (Repl <EdRepl>) AddrList FileName Suffix Append)
   "Store fname as a filename for future saving operations."
-  ;; All the work happens in the parser.
+  ;; All the heavy lifting occurs in the parser.
+  (warn-if-false (string? FileName))
+
+  (display FileName)
+  (newline)
   0)
 
 (define-method (op-global (repl <EdRepl>) addr regex+cmd suffix append)
@@ -750,53 +788,86 @@ command."
           (set-status! ERR)
           ERR)))))
 
-(define-method (op-help (repl <EdRepl>) addr special suffix append)
+(define-method (op-help (Repl <EdRepl>) addr special suffix append)
   "Display the last error message."
-  (display (get-err-msg repl))
+  (display (get-err-msg Repl))
   (newline))
 
-(define-method (op-help-mode (repl <EdRepl>) addr special suffix append)
+(define-method (op-help-mode (Repl <EdRepl>) addr special suffix append)
   "Toggle verbose display of error messages."
-  (set-garrulous! repl (not (get-garrulous repl))))
+  (set-garrulous! Repl (not (get-garrulous Repl))))
 
-(define-method (op-insert (repl <EdRepl>) addr special suffix txt)
-  "Appends lines before the given address."
+(define-method (op-insert (Repl <EdRepl>) AddrList Special Suffix StrList)
+  "Appends StrList, a list of zero or more strings, before the
+1-indexed line number held as the 1st element of AddrList.  That
+address can be zero, which is an alias for address one.
 
-  ;; The CBuffer primitive ed-append inserts expects the line number
+The current line number will become the address of the last inserted
+line, or, if STRLIST was an empty list, the addressed line.
+
+A Suffix of 'l', 'n', or 'p' is allowed."
+  (warn-if-false (list-of-integers-length-1+? AddrList))
+  (warn-if-false (list-of-strings-length-0+? StrList))
+  (warn-if-false (string? Suffix))
+  ;; The CBuffer primitive 'insert-lines' expects the line number
   ;; where the insertions happens, and its line numbers are
   ;; zero-indexed.
 
   ;; Ed line numbers are 1-indexed and indicate the line after which
   ;; the insertion occurs. Zero means before the first line.
 
-  ;; So in this case Ed address = CBuffer address - 1
-  ;; The spec says to treat zero as one.
-  ;; FIXME: add strict address checking
-  (insert-lines repl (max 0 (1- (first addr))) txt)
-  (set-modified! repl #t)
-
-  (unless (string-null? suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+  ;; So in this case Ed address - 1 == CBuffer address
+  (insert-lines Repl (max 0 (1- (first AddrList))) StrList)
+  (unless (null? StrList)
+    (set-modified! Repl #t))
+  (unless (string-null? Suffix)
+    ;; When displaying a line after an append, print only the current
+    ;; line.
+    (ed-repl-display-lines Repl
+                           (+ 1 (get-line-cur Repl))
+                           (+ 1 (get-line-cur Repl))
+                           Suffix))
   0)
 
-(define-method (op-join (repl <EdRepl>)  addr special suffix append)
-  "Joins contiguous lines."
-  ;; The CBuffer primitive ed-join inserts expects the a start
-  ;; address (inclusive) and end address (exclusive) where the
-  ;; join happens, and its line numbers are zero-indexed.
+(define-method (op-join (Repl <EdRepl>) AddrList Special Suffix Append)
+  "AddrList contains 1-indexed, inclusive coordinates that bracket
+lines to be joined into a single line.  If the AddrList has the same
+start and end address, this command does nothing and the current line is
+unchanged.
 
-  ;; Ed line numbers are 1-indexed and are start (inclusive)
-  ;; and end (inclusive). Zero is invalid.
-  (ed-join repl (1- (first addr)) (second addr))
-  (set-modified! repl #t)
+If joining occurs, the current line is moved to the joined line;
+otherwise, the current line is unchagned.
 
-  (unless (string-null? suffix)
-    ;; When displaying a line after an append, print only
-    ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
-  0)
+A Suffix of 'l', 'n', or 'p' is allowed."
+  (warn-if-false (list-of-integers-length-2? AddrList))
+  (warn-if-false (string? Suffix))
+  (warn-if-false (<= (first AddrList) (second AddrList)))
+  (warn-if-false (>= (first AddrList) 1))
+
+  (cond
+   ((> (second AddrList) (get-line-count Repl))
+    (set-err-msg! Repl (format #f "invalid address ~s" AddrList))
+    (set-status! Repl ERR)
+    ERR)
+   ((= (first AddrList) (second AddrList))
+    ;; Nothing to do
+    0)
+   (else
+    ;; The CBuffer primitive join-lines expects the a 0-indexed start
+    ;; address (inclusive) and end address (exclusive) where the
+    ;; join happens.
+
+    ;; Ed line numbers are 1-indexed and are start (inclusive)
+    ;; and end (inclusive). Zero is invalid.
+    (join-lines Repl (1- (first AddrList)) (second AddrList))
+    (set-modified! Repl #t)
+
+    (unless (string-null? Suffix)
+      ;; When displaying a line after an append, print only
+      ;; the current line.
+      (ed-repl-display-lines Repl (1+ (get-line-cur Repl))
+                             (1+ (get-line-cur Repl)) Suffix))
+    0)))
 
 (define-method (op-line-number (repl <EdRepl>) addr special suffix append)
   "Print the addressed line."
@@ -809,21 +880,30 @@ command."
   (ed-repl-display-lines repl (first addr) (1+ (second addr)) "l")
   0)
 
-(define-method (op-mark (repl <EdRepl>) addr name suffix append)
+(define-method (op-mark (Repl <EdRepl>) AddrList Name Suffix Append)
+  ;; Unusually, the Ed Mark command doesn't change the current line.
   ;; Ed bookmarks are 1-indexed.  CBuffer bookmarks are zero-indexed.
-  (ed-mark repl (1- (last addr)) name)
-  (unless (string-null? suffix)
+  (warn-if-false (list-of-integers-length-1? AddrList))
+  (warn-if-false (string? Name))
+  (log-debug-pk Name)
+  (bookmark-bol Repl (1- (first AddrList)) Name)
+  (unless (string-null? Suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl))
-                           suffix))
+    (ed-repl-display-lines Repl
+                           (1+ (get-line-cur Repl))
+                           (1+ (get-line-cur Repl))
+                           Suffix))
   0)
 
-(define-method (op-move (repl <EdRepl>) addr addr3 suffix append)
+(define (op-move Repl AddrList Addr3 Suffix append)
   "Moves the addressed lines after the line addressed by the third address.
 If the 3rd address is zero, it moves the addressed lines to the beginning."
-  ;; Move the current position out of the way, for the moment.
-  (set-line-cur! repl 0)
+
+  (warn-if-false (cbuffer? Repl))
+  (warn-if-false (list-of-integers-length-2? AddrList))
+  (warn-if-false (integer-nonnegative? Addr3))
+  (warn-if-false (string? Suffix))
 
   ;; The CBuffer primitive wants the zero-indexed start line
   ;; (inclusive) and zero-indexed end line (exclusive), and will
@@ -833,23 +913,34 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   ;; 1-indexed end line (inclusive). The 3rd address is the
   ;; 1-indexed line after which to move the lines.  Zero indicates
   ;; that the lines are to be inserted before the 1st line.
-  (ed-move repl (1- (first addr)) (second addr) addr3)
-  (set-modified! repl #t)
+  (move-lines Repl (1- (first AddrList)) (second AddrList) Addr3)
+  (set-modified! Repl #t)
 
-  (unless (string-null? suffix)
+  (unless (string-null? Suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+    (ed-repl-display-lines Repl (1+ (get-line-cur Repl))
+                           (1+ (get-line-cur Repl)) Suffix))
   0)
 
-(define-method (op-null (repl <EdRepl>) addr addr3 suffix append)
+(define-method (op-null (Repl <EdRepl>) AddrList Special Suffix Append)
   "Print the addressed line."
-  (set-line-cur! repl (last addr))
-  (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) "p")
-  0)
+  (warn-if-false (list-of-integers-length-1? AddrList))
+
+  ;; Ed addresses are 1-indexed.
+  (if (or (< (first AddrList) 1) (> (first AddrList) (get-line-count Repl)))
+      (begin
+        (set-err-msg! Repl (format #f "invalid address ~a" (first AddrList)))
+        (set-status! Repl ERR)
+        ERR)
+      ;; else
+      (begin
+        (set-line-cur! Repl (1- (first AddrList)))
+        (ed-repl-display-lines Repl (1+ (get-line-cur Repl)) (1+ (get-line-cur Repl)) "p")
+        0)))
 
 (define-method (op-number (repl <EdRepl>) addr special suffix append)
-  (ed-repl-display-lines repl (first addr) (1+ (second addr)) "n")
+  (ed-repl-display-lines repl (first addr) (second addr) "n")
   0)
 
 (define-method (op-print (repl <EdRepl>) addr special suffix append)
@@ -899,8 +990,10 @@ with the replacement."
         (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) flags)))
   0)
 
-(define-method (op-undo (Repl <EdRepl>) Addr Special Suffix Append)
+;;(define-method (op-undo (Repl <EdRepl>) Addr Special Suffix Append)
+(define (op-undo Repl Addr Special Suffix Append)
   "Undo the last mutator operation."
+  (warn-if-false (cbuffer? Repl))
   (if (undo Repl)
       (begin
         (set-modified! Repl #t)

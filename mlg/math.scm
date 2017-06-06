@@ -1,3 +1,21 @@
+;;; -*- mode: scheme; coding: utf-8; indent-tabs-mode: nil; -*-
+;;; (mlg ed repl) - an Ed-like read-eval-print loop
+;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;;
+;;; This program is free software: you can redistribute it and/or
+;;; modify it under the terms of the GNU General Public License as
+;;; published by the Free Software Foundataion, either version 3 of
+;;; this License, or (at your option) any later version.
+;;;
+;;; This program is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with this program.  If not, see
+;;; <http://www.gnu.org/licenses/>
+
 (define-module (mlg math)
   #:use-module (srfi srfi-1)
   #:export (array-absolute-sum-of-slice
@@ -7,7 +25,11 @@
             array-sum-product-of-slice-pairs
             cast-int32-to-uint32
             cast-uint32-to-int32
+            cumulative-sum
+            monotonic-list-pos-to-coord
             deal
+            dct-f64-forward-8-point
+            dct-f64-inverse-8-point
             lognot-uint8
             lognot-uint16
             lognot-uint32
@@ -83,6 +105,76 @@ of the the products of the elements of two array slices."
       x
       (- (- #x100000000 (logand x #xffffffff)))))
 
+(define (monotonic-list-pos-to-coord lst x)
+  "Given a list of monotonically increasing integers (x1 x2 x3 ...)
+this returns a pair.
+The first element is
+ 0 if 0  <= x < x1
+ 1 if x1 <= x < x2
+ 2 if x2 <= x < x3, etc.
+The second element is the difference between x and the lower limit.
+
+Thus ((list 5 10 15) 7) => (1 2)
+ since x1 <= 7 and 7 - x1 = 2"
+  (let loop ((j 0)
+             (prev 0)
+             (cur (car lst))
+             (rest (cdr lst)))
+    (if (and (<= prev x) (< x cur))
+        (list j (- x prev))
+        (loop (1+ j) cur (car rest) (cdr rest)))))
+
+(define (cumulative-sum lst)
+  "Given a list of numbers (x0 x1 x2 ...),
+ returns a list of the same length of the form
+ (x0 x0+x1 x0+x1+x2 ..."
+  (if (null? lst)
+      lst
+      ;; else
+      (reverse
+       (fold (lambda (cur prev)
+               (append (list (+ cur (first prev))) prev))
+             (list (car lst))
+             (cdr lst)))))
+
+;; The cosine basis function scale factors for the DCT.
+(define CU_0 (/ 1.0 (sqrt 2.0)))
+(define CU_N 1.0)
+(define π 3.141592654)
+
+(define (dct-f64-forward-8-point f)
+  "Given a uniform f64vector of 8 numbers, this procedure returns a
+uniform f64vector of 8 real numbers which are the coefficients of an
+8-point discrete cosine transform."
+  (let ((F (make-f64vector 8 0.0)))
+    (do ((μ 0 (1+ μ))) ((>= μ 8))
+      (let ((coef (if (zero? μ)
+                      (* 0.5 CU_0)
+                      (* 0.5 CU_N))))
+        (do ((x 0 (1+ x))) ((>= x 8))
+          (f64vector-set! F μ
+                          (+ (f64vector-ref F μ)
+                             (* coef
+                                (f64vector-ref f x)
+                                (cos (/ (* μ π (+ 1.0 (* 2.0 x)))
+                                        16.0))))))))
+    F))
+
+(define (dct-f64-inverse-8-point F)
+  (let ((f (make-f64vector 8 0.0)))
+    (do ((x 0 (1+ x))) ((>= x 8))
+      (do ((μ 0 (1+ μ))) ((>= μ 8))
+        (let ((coef (if (zero? μ)
+                        (* 0.5 CU_0)
+                        (* 0.5 CU_N))))
+          (f64vector-set! f x
+                          (+ (f64vector-ref f x)
+                             (* coef
+                                (f64vector-ref F μ)
+                                (cos (/ (* μ π (+ 1.0 (* 2.0 x)))
+                                        16.0))))))))
+    f))
+
 (define (deal n low high)
   "Return a list of N distinct integers with values between
 LOW (inclusive) and HIGH (exclusive)."
@@ -134,8 +226,3 @@ LOW (inclusive) and HIGH (exclusive)."
   (sqrt (+ (* x x) (* y y))))
 
 (load-extension "libguile-mlg" "init_math_lib")
-
-;; Local Variables:
-;; coding: us-ascii
-;; indent-tabs-mode: nil
-;; End:

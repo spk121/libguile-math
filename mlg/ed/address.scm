@@ -306,7 +306,7 @@ between low (inclusive) and high (inclusive)"
      ;; An apostrophe followed by a single lowercase letter is a bookmark
      ((and (char=? c #\') (islower? (peek-2nd-char-safe port)))
       (read-char port)
-      (cons 'apostrophe (read-char port)))
+      (cons 'apostrophe (string (read-char port))))
 
      ;; A slash at the end of the line indicates repeating the last regex
      ((and (char=? c #\/) (char=? #\null (peek-2nd-char-safe port)))

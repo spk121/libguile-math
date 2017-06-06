@@ -21,7 +21,9 @@
             integer-nonnegative?
             list-length-1?
             list-length-2?
+            list-length-9?
             list-of-integers-length-1+?
+            list-of-integers-length-1?
             list-of-integers-length-2?
             list-of-integers?
             list-of-strings-length-0+?
@@ -38,15 +40,26 @@
        (= 1 (length x))))
 
 (define (list-length-2? x)
-  "Return #t if x is a list with a two entries."
+  "Return #t if x is a list with two entries."
   (and (list? x)
        (= 2 (length x))))
+
+(define (list-length-9? x)
+  "Return #t if x is a list with nine entries."
+  (and (list? x)
+       (= 9 (length x))))
 
 (define (list-of-integers-length-1+? x)
   "Return #t if x is a list of one or more integers."
   (and (list? x)
        (>= (length x) 1)
        (every integer? x)))
+
+(define (list-of-integers-length-1? x)
+  "Return #t if x is a list containing one integer."
+  (and (list? x)
+       (= (length x) 1)
+       (integer? (list-ref x 0))))
 
 (define (list-of-integers-length-2? x)
   "Return #t if x is a list containing exactly two integers."
