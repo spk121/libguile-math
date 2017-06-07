@@ -159,7 +159,7 @@
 (define-method (ed-repl-construct-bookmark-callback (repl <EdRepl>))
   (lambda (name)
     ;; CBuffer bookmarks are zero-indexed. Ed bookmarks are 1-indexed.
-    (let ((pos (bookmark-get (get-bookmarks repl) name)))
+    (let ((pos (get-bookmark-line repl name)))
       (if pos
           (1+ (car pos))
           #f))))
@@ -610,12 +610,14 @@ A Suffix of 'l', 'n', or 'p' is allowed."
                            (1+ (get-line-cur Repl)) Suffix))
   0)
 
-(define-method (op-copy (repl <EdRepl>) addr addr3 suffix append)
+(define-method (op-copy (Repl <EdRepl>) AddrList Addr3 Suffix append)
   "Copies the addressed lines after the line addressed by the third address.
 If the 3rd address is zero, it copies the addressed lines to the
 beginning."
-  ;; Move the current position out of the way, for the moment.
-  (set-line-cur! repl 0)
+  (warn-if-false (cbuffer? Repl))
+  (warn-if-false (list-of-integers-length-2? AddrList))
+  (warn-if-false (integer-nonnegative? Addr3))
+  (warn-if-false (string? Suffix))
 
   ;; The CBuffer primitive wants the zero-indexed start line
   ;; (inclusive) and zero-indexed end line (exclusive), and will
@@ -625,12 +627,13 @@ beginning."
   ;; 1-indexed end line (inclusive). The 3rd address is the
   ;; 1-indexed line after which to move the lines.  Zero indicates
   ;; that the lines are to be inserted before the 1st line.
-  (ed-copy repl (1- (first addr)) (second addr) addr3)
-  (set-modified! repl #t)
-  (unless (string-null? suffix)
+  (copy-lines Repl (1- (first AddrList)) (second AddrList) Addr3)
+  (set-modified! Repl #t)
+  (unless (string-null? Suffix)
     ;; When displaying a line after an append, print only
     ;; the current line.
-    (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) suffix))
+    (ed-repl-display-lines Repl (1+ (get-line-cur Repl))
+                           (1+ (get-line-cur Repl)) Suffix))
   0)
 
 (define-method (op-delete (Repl <EdRepl>) AddrList Special Suffix Append)
@@ -964,6 +967,70 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
 (define-method (op-quit-without-checking (repl <EdRepl>) addr special suffix append)
   (set-status! repl QUIT))
 
+(define-method (op-read (Repl <EdRepl>) AddrList FileNameOrCmd Suffix Append)
+  "Reads in the file named by FileNameOrCmd and inserts it after the
+1-indexed line referenced in AddrList.  An address of zero indicates
+before the first line.
+
+If FileNameOrCmd begins with '!', the rest of that parameter will be
+a shell command to be read in, instead.
+
+If FileNameOrCmd is empty, the the currently remembered pathname will
+be used.  If there is no currently remembered pathname, an error will
+occur.
+
+If FileNameOrCmd is a filename, and there is no currently remembered
+pathname, this filename will be used as the currently remembered
+pathname.
+
+The active data position will be set to the end of the last line read
+in."
+  (warn-if-false (list-of-integers-length-1? AddrList))
+  (warn-if-false (string? FileNameOrCmd))
+
+  (let* ((fname (if (not (string-null? FileNameOrCmd))
+                    FileNameOrCmd
+                    ;; else
+                    (if (not (string-null? (get-filename Repl)))
+                        (get-filename)
+                        ;; else
+                        "")))
+         (size 0)
+         (port
+          (if (string-starts-with? FileNameOrCmd #\!)
+              (open-input-pipe (string-drop FileNameOrCmd 1))
+              ;; else
+              (false-if-exception (open-input-file (string-strip-escapes FileNameOrCmd))))))
+
+    (cond
+     ((not port)
+      (set-err-msg! Repl (format #f "cannot open input '~a'" FileNameOrCmd))
+      (set-status! Repl ERR)
+      ERR)
+     (else
+      (set! size (insert-lines-from-port Repl (first AddrList) port))
+      (cond
+       ((< size 0)
+        ERR)
+       ((if (char=? (string-ref-safe FileNameOrCmd 0) #\!)
+            (not (status:exit-val (close-pipe port)))
+            ;; else
+            (begin (close-input-port port) #f))
+        (set-err-msg! Repl (format #f "cannot close input '~a'" FileNameOrCmd))
+        (set-status! Repl ERR)
+        ERR)
+       (else
+        ;; Success
+        (set-modified! Repl #t)
+        (unless (get-scripted Repl)
+          (display size)
+          (newline))
+        (if (and (string-null? (get-filename Repl))
+                 (not (string-starts-with? FileNameOrCmd #\!)))
+            (set-filename! Repl FileNameOrCmd))
+
+        0))))))
+
 (define-method (op-shell-escape (repl <EdRepl>) addr shcmd suffix append)
   ;; So, if shcmd begins with '!', replace that with the text of the
   ;; last shell command.  The spec says "the unescaped character '%'"
@@ -974,20 +1041,23 @@ If the 3rd address is zero, it moves the addressed lines to the beginning."
   (system shcmd)
   0)
 
-(define-method (op-substitute (repl <EdRepl>) addr regex+replace suffix append)
+(define-method (op-substitute (Repl <EdRepl>) AddrList RegexReplace suffix append)
   "Searched the addressed lines for occurrences of the given regular
 expression and replace either the first or all (non-overlapped) matched strings
 with the replacement."
-  (let* ((flags (third regex+replace))
+  (warn-if-false (cbuffer? Repl))
+  (warn-if-false (list-of-integers-length-2? AddrList))
+
+  (let* ((flags (third RegexReplace))
          (LModified
-          (ed-substitute repl
-                         (1- (first addr)) (second addr)
-                         (first regex+replace) (second regex+replace) flags)))
+          (substitute-in-lines Repl
+                               (1- (first AddrList)) (second AddrList)
+                               (first RegexReplace) (second RegexReplace) flags)))
     (if (and LModified
              (or (string-contains flags "l")
                  (string-contains flags "n")
                  (string-contains flags "p")))
-        (ed-repl-display-lines repl (get-line-cur repl) (1+ (get-line-cur repl)) flags)))
+        (ed-repl-display-lines Repl (1+ (get-line-cur Repl)) (1+ (get-line-cur Repl)) flags)))
   0)
 
 ;;(define-method (op-undo (Repl <EdRepl>) Addr Special Suffix Append)
@@ -1007,36 +1077,37 @@ with the replacement."
         (set-err-msg! Repl "could not undo")
         (set-status! Repl ERR))))
 
-(define-method (op-write (repl <EdRepl>) addr fn suffix append)
-  ;; This whole function is a bit garbage, because it tried to hard
+(define (op-write Repl AddrList FileNameOrCmd Suffix append)
+  ;; This whole function is a bit garbage, because it tried too hard
   ;; to merge the popen and fopen into one path.
   (let ((size 0)
         (port
-         (if (string-starts-with? fn #\!)
-             (open-output-pipe (string-drop fn 1))
+         (if (string-starts-with? FileNameOrCmd #\!)
+             (open-output-pipe (string-drop FileNameOrCmd 1))
              ;; else
-             (false-if-exception (open-output-file (string-strip-escapes fn))))))
+             (false-if-exception (open-output-file (string-strip-escapes FileNameOrCmd))))))
 
     (cond
      ((not port)
-      (set-err-msg! repl "cannot open output file")
-      (set-status! repl ERR)
+      (set-err-msg! Repl "cannot open output file")
+      (set-status! Repl ERR)
       ERR)
      ((< ((lambda (x) (set! size x) x)
-          (ed-write repl (1- (first addr)) (second addr) port)) 0)
+          (display-lines-to-port Repl (1- (first AddrList))
+                                 (second AddrList) port)) 0)
       ERR)
-     ((if (string-starts-with? fn #\!)
+     ((if (string-starts-with? FileNameOrCmd #\!)
           (not (status:exit-val (close-pipe port)))
           ;; else
           (begin (close-output-port port) #f))
-      (set-err-msg! repl "cannot close output file")
-      (set-status! repl ERR)
+      (set-err-msg! Repl "cannot close output file")
+      (set-status! Repl ERR)
       ERR)
      (else
       ;; Success
-      (set-modified! repl #f)
-      (get-modified repl)
-      (unless (get-scripted repl)
+      (set-modified! Repl #f)
+      (get-modified Repl)
+      (unless (get-scripted Repl)
         (format (current-error-port) "~a~%" size))
       0))))
 
@@ -1063,7 +1134,7 @@ with the replacement."
    (#\P    0 #f    #f    #f null          #t #f  ,op-prompt)
    (#\q    0 #f    #f    #f null          #f #f  ,op-quit)
    (#\Q    0 #f    #f    #f null          #f #f  ,op-quit-without-checking)
-   (#\r    1 $     #f    #t file          #f #f  op-read)
+   (#\r    1 $     #f    #t file          #f #f  ,op-read)
    (#\s    2 dot   dot   #f regex+replace #t #f  ,op-substitute)
    (#\t    2 dot   dot   #t address       #t #f  ,op-copy)
    (#\u    0 #f    #f    #f null          #t #f  ,op-undo)
