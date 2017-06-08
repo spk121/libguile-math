@@ -35,6 +35,7 @@
             lognot-uint32
             lognot-uint64
             pythag
+            quadratic-roots
             real->integer))
 
 (define (array-absolute-sum-of-slice arr n idx)
@@ -225,4 +226,25 @@ LOW (inclusive) and HIGH (exclusive)."
 (define (pythag x y)
   (sqrt (+ (* x x) (* y y))))
 
-(load-extension "libguile-mlg" "init_math_lib")
+(define (quadratic-roots a b c)
+  "Given a quadratic equation Ax^2 + Bx + C = 0, find the roots."
+  (if (zero? a)
+      (if (zero? b)
+          '()
+          ;; else
+          (list (/ (- c) b)))
+      ;; else
+      (let* ((det (if (>= b 0)
+                      (sqrt (- (* b b) (* 4 a c)))
+                      (- (sqrt (- (* b b) (* 4 a c))))))
+             (q (* -0.5 (+ b det))))
+        (list (/ q a) (/ c q)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; For C-defined functions
+
+(define *math-load-extension* #t)
+(define (math-load-extension)
+  (when *math-load-extension*
+    (set! *math-load-extension* #f)
+    (load-extension "libguile-mlg" "init_math_lib")))
