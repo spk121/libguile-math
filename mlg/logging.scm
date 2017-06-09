@@ -782,7 +782,7 @@ cases."
 
 (define (log-structured log-domain log-level . rest)
   "Log a message to structured data.  The message will be passed
-through the lo writer set by the application using
+through the log writer set by the application using
 log-set-writer-func.  If the message is fatal, the program will be
 aborted.
 

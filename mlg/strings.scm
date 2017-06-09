@@ -158,6 +158,12 @@ Flags is a string consisting of one or more of
                                                     (match:end match-struct n))
                                          ;; else
                                          "")))))
+
+                          ((char=? c2 #\n)
+                           ;; Backslash + n means we're going to
+                           ;; put a real newline here.
+                           (string-append rstr "\n"))
+
                           (else
                            ;; Backslash + anything else is an escape?
                            ;; FIXME: check if it is really an escape
