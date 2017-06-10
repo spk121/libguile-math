@@ -907,7 +907,8 @@ no valid pattern string was found."
 
      ((char=? c #\null)
       ;; Never found matching delimiter
-      (set! *read-regex-string-err* "no matching delimiter found")
+      (set! *read-regex-string-err*
+        (format #f "no matching '~a' delimiter found" delimiter))
       (unread-string txt port)
       #f)
 
