@@ -1,5 +1,5 @@
 ;;; -*- mode: scheme; coding: utf-8; indent-tabs-mode: nil; -*-
-;;; (mlg ed repl) - an Ed-like read-eval-print loop
+;;; (mlg math) - some math and math-like procedures
 ;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
@@ -18,25 +18,44 @@
 
 (define-module (mlg math)
   #:use-module (srfi srfi-1)
-  #:export (array-absolute-sum-of-slice
+  #:export (
+            array-absolute-sum-of-slice
             array-rotate-slice-pairs!
-            array-scale-slice!
             array-scale-and-add-slice-to-slice!
+            array-scale-slice!
             array-sum-product-of-slice-pairs
             cast-int32-to-uint32
             cast-uint32-to-int32
             cumulative-sum
-            monotonic-list-pos-to-coord
-            deal
             dct-f64-forward-8-point
             dct-f64-inverse-8-point
-            lognot-uint8
+            deal
             lognot-uint16
             lognot-uint32
             lognot-uint64
+            lognot-uint8
+            monotonic-list-pos-to-coord
             pythag
             quadratic-roots
-            real->integer))
+            real->integer
+
+            math-load-extension
+            ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; helper funcs
+
+(define (bytes-to-bits b)
+  (* 8 b))
+
+(define (unsigned-limit b)
+  (1- (expt 2 (bytes-to-bits b))))
+
+(define (lognot-uint x b)
+  (- (unsigned-limit b) (logand (unsigned-limit b) x)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 
 (define (array-absolute-sum-of-slice arr n idx)
   "Given an array ARR, consider the array slice where the index of the
@@ -105,25 +124,6 @@ of the the products of the elements of two array slices."
   (if (<= x #x7fffffff)
       x
       (- (- #x100000000 (logand x #xffffffff)))))
-
-(define (monotonic-list-pos-to-coord lst x)
-  "Given a list of monotonically increasing integers (x1 x2 x3 ...)
-this returns a pair.
-The first element is
- 0 if 0  <= x < x1
- 1 if x1 <= x < x2
- 2 if x2 <= x < x3, etc.
-The second element is the difference between x and the lower limit.
-
-Thus ((list 5 10 15) 7) => (1 2)
- since x1 <= 7 and 7 - x1 = 2"
-  (let loop ((j 0)
-             (prev 0)
-             (cur (car lst))
-             (rest (cdr lst)))
-    (if (and (<= prev x) (< x cur))
-        (list j (- x prev))
-        (loop (1+ j) cur (car rest) (cdr rest)))))
 
 (define (cumulative-sum lst)
   "Given a list of numbers (x0 x1 x2 ...),
@@ -205,23 +205,24 @@ LOW (inclusive) and HIGH (exclusive)."
   "Find the bitwise complement of a 64-bit unsigned integer."
   (lognot-uint x 8))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; This is all from (ryu core)
+(define (monotonic-list-pos-to-coord lst x)
+  "Given a list of monotonically increasing integers (x1 x2 x3 ...)
+this returns a pair.
+The first element is
+ 0 if 0  <= x < x1
+ 1 if x1 <= x < x2
+ 2 if x2 <= x < x3, etc.
+The second element is the difference between x and the lower limit.
 
-(define (bytes-to-bits b)
-  (* 8 b))
-
-(define (signed-limit b)
-  (1- (expt 2 (1- (bytes-to-bits b)))))
-
-(define (unsigned-limit b)
-  (1- (expt 2 (bytes-to-bits b))))
-
-(define (signed-limit-neg b)
-  (- (expt 2 (1- (bytes-to-bits b)))))
-
-(define (lognot-uint x b)
-  (- (unsigned-limit b) (logand (unsigned-limit b) x)))
+Thus ((list 5 10 15) 7) => (1 2)
+ since x1 <= 7 and 7 - x1 = 2"
+  (let loop ((j 0)
+             (prev 0)
+             (cur (car lst))
+             (rest (cdr lst)))
+    (if (and (<= prev x) (< x cur))
+        (list j (- x prev))
+        (loop (1+ j) cur (car rest) (cdr rest)))))
 
 (define (pythag x y)
   (sqrt (+ (* x x) (* y y))))
@@ -243,8 +244,8 @@ LOW (inclusive) and HIGH (exclusive)."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; For C-defined functions
 
-(define *math-load-extension* #t)
+(define *math-lib-loaded* #f)
 (define (math-load-extension)
-  (when *math-load-extension*
-    (set! *math-load-extension* #f)
+  (unless *math-lib-loaded*
+    (set! *math-lib-loaded* #t)
     (load-extension "libguile-mlg" "init_math_lib")))

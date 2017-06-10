@@ -1,16 +1,34 @@
+;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
+;;; (mlg time) - some time helper functions
+;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;;
+;;; This program is free software: you can redistribute it and/or
+;;; modify it under the terms of the GNU General Public License as
+;;; published by the Free Software Foundataion, either version 3 of
+;;; this License, or (at your option) any later version.
+;;;
+;;; This program is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with this program.  If not, see
+;;; <http://www.gnu.org/licenses/>
+
 (define-module (mlg time)
   #:use-module (srfi srfi-9)
   #:export (monotonic-time
-	    timer?
-	    timer-new
-	    timer-restart
-	    timer-stop
-	    timer-continue
-	    timer-elapsed
-	    ))
+            timer?
+            timer-new
+            timer-restart
+            timer-stop
+            timer-continue
+            timer-elapsed
+            ))
 
 (define (monotonic-time)
-  "Return the current time in microseconds since 1970."  
+  "Return the current time in microseconds since 1970."
   (let ((now (gettimeofday)))
     (+ (* 1000000 (car now))
        (cdr now))))
@@ -25,8 +43,8 @@
 (define (timer-new)
   "Creates a new timer and starts timing."
   (make-timer (monotonic-time)
-	      0
-	      #t))
+              0
+              #t))
 
 (define (timer-restart timer)
   "Restarts the timer, with the current time as the start time."
@@ -42,7 +60,7 @@
 
   (- (timer-end-time timer)
      (timer-start-time timer)))
-    
+
 (define (timer-stop timer)
   "Stops the timer. Also returns the elapsed time in microseconds for
 this timer."
@@ -55,8 +73,8 @@ this timer."
   "Resumes a timer that has been stopped with 'timer-stop'."
   ;; (assert-type timer? timer)
   (let ((elapsed (- (timer-end-time timer)
-		    (timer-start-time timer))))
+                    (timer-start-time timer))))
     (set-timer-start-time! timer (- (monotonic-time)
-				    elapsed))
+                                    elapsed))
     (set-timer-running! timer #t)))
 

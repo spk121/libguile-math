@@ -1,3 +1,20 @@
+;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
+;;; (mlg logging) - a GLib-like logger
+;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;;
+;;; This program is free software: you can redistribute it and/or
+;;; modify it under the terms of the GNU General Public License as
+;;; published by the Free Software Foundataion, either version 3 of
+;;; this License, or (at your option) any later version.
+;;;
+;;; This program is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with this program.  If not, see
+;;; <http://www.gnu.org/licenses/>
 (define-module (mlg logging)
   #:use-module (ice-9 format)
   #:use-module (srfi srfi-1)
@@ -46,9 +63,6 @@
 	   log-debug-pk
 	   log-debug-time
 	   ))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; From (ryu core)
 
 (define-syntax __FILE__
   (syntax-rules ()
@@ -171,11 +185,6 @@
 				  LOG_LEVEL_CRITICAL
 				  LOG_LEVEL_WARNING
 				  LOG_LEVEL_MESSAGE))
-;; 1144 INFO_LEVELS
-;; These are filtered by MESSAGES_DEBUG in the default log handler
-(define INFO_LEVELS       (logior LOG_LEVEL_INFO
-				  LOG_LEVEL_DEBUG))
-
 (define LOG_DOMAIN #f)
 
 (define (set-log-domain str)
@@ -343,47 +352,10 @@
 ;; gmessages
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; 486: GLogDomain
-(define-record-type <Domain>
-  (make-domain _log_domain _fatal_mask _handlers)
-  domain?
-  (_log_domain domain:log-domain)
-  (_fatal_mask domain:fatal-mask domain:set-fatal-mask!)
-  (_handlers domain:handlers domain:set-handlers!))
-
-;; 493: GLogHandler
-(define-record-type <LogHandler>
-  (make-log-handler _id _log_level _log_func _destroy_notify)
-  log-handler?
-  (_id log-handler:id)
-  (_log_level log-handler:log-level)
-  (_log_func log-handler:log-func)
-  (_destroy_notify log-handler:destroy-notify))
-
-(define (%dump-handler handler)
-  (assert-type log-handler handler)
-  (format #t "handler:        ~a~%" handler)
-  (format #t "id:             ~a~%" (log-handler:id handler))
-  (format #t "level:          ~b~%" (log-handler:log-level handler))
-  (format #t "destroy notify: ~a~%" (log-handler:destroy-notify handler)))
-
-(define (%dump-log-domain domain)
-  (assert-type domain domain)
-  (format #t "domain:         ~a~%" domain)
-  (format #t "log domain:     ~a~%" (domain:log-domain domain))
-  (format #t "fatal mask:     ~b~%" (domain:fatal-mask domain))
-  (do ((i 0 (1+ i)))
-      ((>= i (length (domain:handlers domain))))
-    (format #t "Handler #~a~%" (1+ i))
-    (%dump-handler (list-ref (domain:handlers domain) i))))
-
 ;; 505: variables
 (define *messages-lock* (make-mutex))
-(define *log-domains* '())
-(define *log-depth* (make-fluid 0))
 (define *log-structured-depth*  (make-fluid 0))
 (define *default-log-func* #f)
-(define *fatal-log-func* #f)
 (define *log-writer-func* #f)
 (define *log-enable-color* #t)
 (define *log-start-time* #f)
@@ -411,129 +383,6 @@
   "For now, an alias for display."
   (display string port))
 
-;; 591: write_string_sized
-(define (write-bytevector port bv)
-  (assert-type output-port port)
-  (assert-type bytevector bv)
-  "For now, an alias for put-bytevector."
-  (put-bytevector port bv))
-
-;; 603: g_log_find_domain_L
-(define (log-find-domain-L log-domain-str)
-  "Finds a log domain whose domain string matches LOG-DOMAIN-STR."
-  (assert-type string log-domain-str)
-  (if (null? *log-domains*)
-      #f
-      (find
-       (lambda (domain)
-	 (equal? log-domain-str (domain:log-domain domain)))
-       *log-domains*)))
-
-;; 618: g_log_domain_new_L
-(define (log-domain-new-L log-domain-str)
-  "Appends a new default domain to the domain list.
-Should this be in a mutex?  Should we be checking for duplicates?"
-  (assert-type string log-domain-str)
-  (set! *log-domains*
-    (append *log-domains*
-	    (list (make-domain (string-copy log-domain-str)
-			       LOG_FATAL_MASK
-			       #f)))))
-
-;; 634: g_log_domain_check_free_L
-(define (log-domain-check-free-L domain)
-  "This appears to be a routine to cull a given log domain from the
-log domain list if it would never print anything."
-  (assert-type domain domain)
-  (when (and (eqv? (domain:fatal-mask domain) LOG_FATAL_MASK)
-	     (null? (domain:handlers domain)))
-    (set! *log-domains*
-      (filter-map
-       (lambda (entry)
-	 (not (equal? domain entry)))
-       *log-domains*))))
-
-;; 663: g_log_domain_get_handler_L
-(define (log-domain-get-handler-L domain log-level)
-  "Searches through the log domain list to find a log function for a
-given domain and log level."
-  (if (or (not (domain? domain)) (not log-level) (zero? log-level))
-      *default-log-func*
-      ;; else
-      (let* ((handlers (domain:handlers domain))
-	     (handler (find (lambda (entry)
-			      (eqv? (logand (log-handler:log-level entry) log-level)
-				    log-level))
-			    handlers)))
-	(if handler
-	    handler
-	    *default-log-func*))))
-
-;; 712: g_log_set_always_fatal
-(define (log-set-always-fatal _fatal_mask)
-  (let ((fatal-mask (logand (logior _fatal_mask LOG_LEVEL_ERROR)
-			    (lognot-uint16 LOG_FLAG_FATAL))))
-    (lock-mutex *messages-lock*)
-    (let ((old-mask *log-always-fatal*))
-      (set! *log-always-fatal* fatal-mask)
-      (unlock-mutex *messages-lock*)
-      old-mask)))
-
-;; 750: g_log_set_fatal_mask
-(define (log-set-fatal-mask _log_domain _fatal_mask)
-  (let ((log-domain (or _log_domain ""))
-	(fatal-mask (logand (logior _fatal_mask LOG_LEVEL_ERROR)
-			    (lognot-uint16 LOG_FLAG_FATAL))))
-    (lock-mutex *messages-lock*)
-    (let* ((domain (or (log-find-domain-L log-domain)
-		       (log-domain-new-L log-domain)))
-	   (old-flags (domain:fatal-mask domain)))
-      (domain:set-fatal-mask! domain fatal-mask)
-      (log-domain-check-free-L domain)
-      (unlock-mutex *messages-lock*)
-      old-flags)))
-
-;; 780: g_log_set_handler
-(define (log-set-handler log-domain log-levels log-func)
-  "Assign a new handler for a given domain and log level mask."
-  (log-set-handler-full log-domain log-levels log-func #f))
-
-;; 860: handler_id
-(define *handler-id* 0)
-
-;; 854: g_log_set_handler_full
-(define (log-set-handler-full _log_domain log-levels log-func destroy)
-  "Assign a new handler for a given domain and log level mask."
-  (when (and (not (zero? (logand log-levels LOG_LEVEL_MASK)))
-	     (procedure? log-func))
-    
-    (lock-mutex *messages-lock*)
-    (set! *handler-id* (1+ *handler-id*))
-    
-    (let* ((log-domain (if (and _log_domain (not (string-null? _log_domain)))
-			   (string-copy _log_domain)
-			   ""))
-	   (domain (or (log-find-domain-L log-domain)
-		       (log-domain-new-L log-domain)))
-	   (handler (make-log-handler *handler-id*
-				      log-levels
-				      log-func
-				      destroy)))
-      (domain:set-handlers! domain (list handler))
-      (unlock-mutex *messages-lock*)
-      ;; and return the unique ID
-      (log-handler:id handler))))
-
-;; 909: g_log_set_default_handler
-(define (log-set-default-handler log-func)
-  "Assign log-func as the default log handler function for non-fatal
-cases."
-  (lock-mutex *messages-lock*)
-  (let ((old-log-func *default-log-func*))
-    (set! *default-log-func* log-func)
-    (unlock-mutex *messages-lock*)
-    old-log-func))
-
 (define (log-set-default-writer writer_func)
   "Set the function to be used for logging.  WRITER_FUNC is a procedure
 that takes two parameters: a log-level integer, and an alist of key/value
@@ -560,53 +409,6 @@ when logging to the standard streams."
   (lock-mutex *messages-lock*)
   (set! *log-enable-color* flag)
   (unlock-mutex *messages-lock*))
-
-;; 953: g_test_log_set_fatal_handler
-(define (log-set-fatal-handler log-func)
-  "Assign log-func as the default log handler function for fatal
-cases."
-  (lock-mutex *messages-lock*)
-  (set! *fatal-log-func* log-func)
-  (unlock-mutex *messages-lock*)
-  *unspecified*)
-
-
-;; 973: g_log_remove_handler
-(define (log-remove-handler _log_domain handler-id)
-  (when (> handler-id 0)
-    (let ((log-domain (or (and _log_domain (not (string-null? _log_domain)))
-			  ""))
-	  (notify-func #f)
-	  (notify-domain #f)
-	  (notify-handler #f)
-	  (warning #f))
-      (lock-mutex *messages-lock*)
-      (let ((domain (log-find-domain-L log-domain)))
-	(when domain
-	  ;; Remove any handler with this ID from the current log
-	  ;; domain.
-	  (let ((handler (find
-			  (lambda (entry)
-			    (eqv? (log-handler:id entry) handler-id))
-			  (domain:handlers domain))))
-	    (if handler
-		(begin
-		  (domain:set-handlers! domain (delete! handler (domain:handlers domain)))
-		  (log-domain-check-free-L domain)
-		  (when (log-handler:destroy-notify handler)
-		    (set! notify-func (log-handler:destroy-notify handler))
-		    (set! notify-domain domain)
-		    (set! notify-handler handler)))
-		;; else, if no handler found
-		(set! warning (format #f "could not find handler with id '~a' for domain \"~a\"" handler-id log-domain)))))
-	(unlock-mutex *messages-lock*)
-	;; Shouldn't call notify notification func within mutex.
-	(if notify-func
-	    (notify-func notify-domain notify-handler))
-
-	;; FIXME: later, make this a g-warning
-	(if warning
-	    (display warning (current-error-port)))))))
 
 ;; 1151: mklevel_prefix
 (define (mklevel-prefix log-level use-color?)
@@ -646,69 +448,6 @@ cases."
 		       LOG_LEVEL_MESSAGE))
       (current-error-port)
       (current-output-port)))
-
-;; 1216: expected_messages
-(define *expected-messages* '())
-
-;; 1239: g_logv
-(define (logv log-domain _log-level msg)
-  (let ((was-fatal (logtest _log-level LOG_FLAG_FATAL))
-	(was-recursion (logtest _log-level LOG_FLAG_RECURSION))
-	(log-level (logand _log-level LOG_LEVEL_MASK)))
-    (if (zero? log-level)
-	#f
-	;; else
-	(do ((i 8 (1- i)))
-	    ((< i 0))
-	  (when (logtest (ash 1 i) log-level)
-	    (let ((test-level (logior (ash 1 i)
-				      (if was-fatal LOG_FLAG_FATAL 0)
-				      (if was-recursion LOG_FLAG_RECURSION 0)))
-		  (log-func #f)
-		  (domain-fatal-mask #f))
-	      
-	      (lock-mutex *messages-lock*)
-	      (let* ((depth (fluid-ref *log-depth*))
-		     (domain (log-find-domain-L (if log-domain
-						    log-domain
-						    "")))
-		     (test-level (if (zero? depth)
-				     test-level
-				     (logior test-level LOG_FLAG_RECURSION)))
-		     (domain-fatal-mask (if domain
-					    (domain:fatal-mask domain)
-					    LOG_FATAL_MASK)))
-		(set! depth (1+ depth))
-		(when (logtest (logior domain-fatal-mask *log-always-fatal*) test-level)
-		  (set! test-level (logior test-level LOG_FLAG_FATAL)))
-		;;(pk 'test-level test-level 'LOG_FLAG_RECURSION LOG_FLAG_RECURSION 'domain domain)
-		(if (logtest test-level LOG_FLAG_RECURSION)
-		    (set! log-func %log-fallback-handler)
-		    ;; else
-		    (set! log-func (log-domain-get-handler-L domain test-level)))
-		(set! domain #f)
-		(unlock-mutex *messages-lock*)
-		(fluid-set! *log-depth* depth)
-
-		;;(pk 'log-func log-func 'log-domain log-domain)
-		(log-func log-domain test-level msg)
-
-		(if (and (logtest test-level LOG_FLAG_FATAL)
-			 (not (logtest test-level LOG_LEVEL_ERROR)))
-		    (or (and (procedure? *fatal-log-func*)
-			     (not (*fatal-log-func* log-domain test-level msg)))
-			(%log-abort (not (logtest test-level LOG_FLAG_RECURSION)))))
-
-		(set! depth (1- depth))
-		(fluid-set! *log-depth* depth))))))))
-
-;; 1390: g_log
-(define (%log log-domain log-level formatstr . args)
-  (if (null? args)
-      (logv log-domain log-level formatstr)
-      ;; else
-      (logv log-domain log-level
-	    (apply format (append (list #f formatstr) args)))))
 
 ;; 1406: log_level_to_priority
 (define (log-level->priority log-level)
@@ -964,13 +703,6 @@ the current error or output port."
 	     (format port "~a=~s~%" key val))))
      fields-alist)
     (format port "_PID=~s~%" (getpid))))
-
-;; 2683: g_return_if_fail_warning
-(define (if-false-warning log-domain pretty-function expression)
-  (%log log-domain LOG_LEVEL_CRITICAL
-	"~a: assertion '~a' failed"
-	pretty-function
-	expression))
 
 ;; 2850: _g_log_fallback_handler
 (define (%log-fallback-handler log-domain log-level _message)

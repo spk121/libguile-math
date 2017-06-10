@@ -71,7 +71,11 @@ sub compute {
                 $end = $codepoint + 1;
             }
             for (my $n=$start; $n<$end; $n++) {
-                printf $out "    (#\\x%04x . %s)\n", $n, $numeric;
+		if ($n < 128) {
+		    printf $out "    (#\\%c . %s)\n", $n, $numeric;
+		} else {
+		    printf $out "    (#\\x%04x . %s)\n", $n, $numeric;
+		}
             }
         }
     }

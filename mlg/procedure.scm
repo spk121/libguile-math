@@ -1,12 +1,8 @@
 (define-module (mlg procedure)
   #:use-module (mlg logging)
-  #:export (...
+  #:export (
 	    ???
 	    !!!))
-
-(define (... . args)
-  "This is a stub procedure that throws an exception when called."
-  (log-error (format #f "stub procedure called with args ~s" args)))
 
 (define (??? . args)
   "This is a stub procedure that prints a warning when called."
