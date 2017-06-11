@@ -18,18 +18,7 @@
 
 (define-module (mlg characters)
   #:use-module (mlg numval)
-  #:export (char->numeric-value
-            isalnum?
-            isalpha?
-            iscntrl?
-            isdigit?
-            isgraph?
-            islower?
-            isprint?
-            ispunct?
-            isspace?
-            isupper?
-            isxdigit?
+  #:export (
             ascii-isalnum?
             ascii-isalpha?
             ascii-iscntrl?
@@ -41,61 +30,22 @@
             ascii-isspace?
             ascii-isupper?
             ascii-isxdigit?
+            char->numeric-value
+            isalnum?
+            isalpha?
+            iscntrl?
+            isdigit?
+            isgraph?
+            islower?
+            isprint?
+            ispunct?
+            isspace?
+            isupper?
+            isxdigit?
             tolower
             toupper
+            U+
             ))
-
-(define (char->numeric-value c)
-  "Given a character C, return a numeric value associated with that
-character, or #f, if the character is not associated with a numeric
-value."
-  (assv-ref *unicode-numval-alist* c))
-
-(define (isalnum? c)
-  "Return #t if character C is alphabetic or numeric."
-  (char-set-contains? char-set:letter+digit c))
-
-(define (isalpha? c)
-  "Return #t if character C is a letter."
-  (char-set-contains? char-set:letter c))
-
-(define (iscntrl? c)
-  "Return true if C an ISO C0 or C1 control character"
-  (char-set-contains? char-set:iso-control c))
-
-(define (isdigit? c)
-  "Return #t if C is a digit."
-  (char-set-contains? char-set:digit c))
-
-(define (isgraph? c)
-  "Return #t if C is a graphic character."
-  (char-set-contains? char-set:graphic c))
-
-(define (islower? c)
-  "Return #t if C a lowercase letter."
-  (char-set-contains? char-set:lower-case c))
-
-(define (isprint? c)
-  "Return #t if C is a printing character."
-   (char-set-contains? char-set:printing c))
-
-(define (ispunct? c)
-  "Return #t if C is a graphical character that is not alphanumeric.
-Note that this includes both punctuation and symbols."
-  (and (char-set-contains? char-set:graphic c)
-       (not (char-set-contains? char-set:letter+digit c))))
-
-(define (isspace? c)
-  "Return #t if C is a whitespace character."
-   (char-set-contains? char-set:whitespace c))
-
-(define (isupper? c)
-  "Return #t if C is an uppercase letter."
-   (char-set-contains? char-set:upper-case c))
-
-(define (isxdigit? c)
-  "Return #t if C is hexadecimal digit."
-  (char-set-contains? char-set:hex-digit c))
 
 (define (ascii-isalnum? c)
   "Return true if C is both ASCII and a letter or digit."
@@ -164,6 +114,58 @@ Note that this includes both punctuation and symbols."
    (char-set-contains? char-set:hex-digit c)
    (char-set-contains? char-set:ascii c)))
 
+(define (char->numeric-value c)
+  "Given a character C, return a numeric value associated with that
+character, or #f, if the character is not associated with a numeric
+value."
+  (assv-ref *unicode-numval-alist* c))
+
+(define (isalnum? c)
+  "Return #t if character C is alphabetic or numeric."
+  (char-set-contains? char-set:letter+digit c))
+
+(define (isalpha? c)
+  "Return #t if character C is a letter."
+  (char-set-contains? char-set:letter c))
+
+(define (iscntrl? c)
+  "Return true if C an ISO C0 or C1 control character"
+  (char-set-contains? char-set:iso-control c))
+
+(define (isdigit? c)
+  "Return #t if C is a digit."
+  (char-set-contains? char-set:digit c))
+
+(define (isgraph? c)
+  "Return #t if C is a graphic character."
+  (char-set-contains? char-set:graphic c))
+
+(define (islower? c)
+  "Return #t if C a lowercase letter."
+  (char-set-contains? char-set:lower-case c))
+
+(define (isprint? c)
+  "Return #t if C is a printing character."
+   (char-set-contains? char-set:printing c))
+
+(define (ispunct? c)
+  "Return #t if C is a graphical character that is not alphanumeric.
+Note that this includes both punctuation and symbols."
+  (and (char-set-contains? char-set:graphic c)
+       (not (char-set-contains? char-set:letter+digit c))))
+
+(define (isspace? c)
+  "Return #t if C is a whitespace character."
+   (char-set-contains? char-set:whitespace c))
+
+(define (isupper? c)
+  "Return #t if C is an uppercase letter."
+   (char-set-contains? char-set:upper-case c))
+
+(define (isxdigit? c)
+  "Return #t if C is hexadecimal digit."
+  (char-set-contains? char-set:hex-digit c))
+
 (define (tolower c)
   "Return the lowercase character version of C"
   (char-downcase c))
@@ -171,3 +173,7 @@ Note that this includes both punctuation and symbols."
 (define (toupper c)
   "Return the uppercase character version of C"
   (char-upcase c))
+
+(define (U+ x)
+  "A shorthand for integer->char."
+  (integer->char x))
