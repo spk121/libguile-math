@@ -16,7 +16,31 @@
 ;;; along with this program.  If not, see
 ;;; <http://www.gnu.org/licenses/>
 (define-module (mlg lists)
-  #:export (sublist))
+  #:use-module (srfi srfi-1)
+  #:use-module (mlg logging)
+  #:export (
+	    sublist
+	    take-n
+	    take-right-n
+	    ))
 
 (define (sublist list start end)
   (drop (take list end) start))
+
+(define (take-n lst n)
+  "Return a list containing the first N elements of LST.  If the list
+has N or fewer elements, return LST."
+  (warn-if-false (list? lst))
+  (if (> (length lst) n)
+      (take lst n)
+      lst))
+
+(define (take-right-n lst n)
+  "Return a list containing the lasn N elements of LST.  The return
+value shares a common tail with LST. If the list has N or fewer elements,
+return LST."
+  (warn-if-false (list? lst))
+
+  (if (> (length lst) n)
+      (take-right lst n)
+      lst))
