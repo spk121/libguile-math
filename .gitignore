@@ -2,3 +2,9 @@
 *.go
 *.o
 *.so
+*.log
+tmp*
+temp*
+*tmp
+*.Z
+*.tar
