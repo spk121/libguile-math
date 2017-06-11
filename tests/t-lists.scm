@@ -6,6 +6,14 @@
 (define MediumL (iota 100))
 (define SmallL (iota 1))
 
+(test-assert (list-range-check-n? '() 10 0 10))
+(test-assert (list-range-check-n? MediumL 3 0 2))
+(test-assert (not (list-range-check-n? MediumL 3 3 6)))
+
+(test-assert (list-range-check-right-n? '() 10 0 10))
+(test-assert (list-range-check-right-n? MediumL 3 97 99))
+(test-assert (not (list-range-check-right-n? MediumL 3 0 96)))
+
 (test-equal (take-n BigL 2) '(0 1))
 (test-equal (take-n BigL 1) '(0))
 (test-assert (null? (take-n BigL 0)))

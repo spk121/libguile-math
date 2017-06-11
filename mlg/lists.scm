@@ -18,11 +18,48 @@
 (define-module (mlg lists)
   #:use-module (srfi srfi-1)
   #:use-module (mlg logging)
+  #:use-module (mlg typechecking)
   #:export (
+	    list-range-check-n?
+	    list-range-check-right-n?
 	    sublist
 	    take-n
 	    take-right-n
 	    ))
+
+(define (list-range-check-n? lst n low high)
+  "Return #t if the first N elements in the list is between
+low (inclusive) and high (inclusive).  If the list has fewer
+than N elements, check all the elements in the list."
+  (warn-if-false (list? lst))
+  (warn-if-false (integer-nonnegative? n))
+  (warn-if-false (number? low))
+  (warn-if-false (number? high))
+
+  (if (or (zero? n) (null? lst))
+      #t
+      ;; else
+      (let ((sublist (take-n lst n)))
+	(every (lambda (x)
+		 (and (number? x) (<= low x) (<= x high)))
+	       sublist))))
+
+(define (list-range-check-right-n? lst n low high)
+  "Return #t if the last N elements in the list is between
+low (inclusive) and high (inclusive).  If the list has fewer
+than N elements, check all the elements in the list."
+  (warn-if-false (list? lst))
+  (warn-if-false (integer-nonnegative? n))
+  (warn-if-false (number? low))
+  (warn-if-false (number? high))
+
+  (if (or (zero? n) (null? lst))
+      #t
+      ;; else
+      (let ((sublist (take-right-n lst n)))
+	(every (lambda (x)
+		 (and (number? x) (<= low x) (<= x high)))
+	       sublist))))
 
 (define (sublist list start end)
   (drop (take list end) start))
