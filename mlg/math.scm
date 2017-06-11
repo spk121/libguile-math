@@ -19,6 +19,7 @@
 (define-module (mlg math)
   #:use-module (srfi srfi-1)
   #:export (
+            add-num-or-false
             array-absolute-sum-of-slice
             array-rotate-slice-pairs!
             array-scale-and-add-slice-to-slice!
@@ -56,6 +57,25 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+
+(define (add-num-or-false . vals)
+  "Add the parameters, returning #f if any of the parameters
+is not a number."
+  (if (null? vals)
+      0
+      (let loop ((sum 0)
+                 (cur (car vals))
+                 (rest (cdr vals)))
+        (if (not (number? cur))
+            #f
+            ;; else
+            (if (null? rest)
+                (+ cur sum)
+                ;; else
+                (loop (+ cur sum)
+                      (car rest)
+                      (cdr rest)))))))
+
 
 (define (array-absolute-sum-of-slice arr n idx)
   "Given an array ARR, consider the array slice where the index of the
