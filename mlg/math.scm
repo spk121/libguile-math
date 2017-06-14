@@ -18,6 +18,7 @@
 
 (define-module (mlg math)
   #:use-module (srfi srfi-1)
+  #:use-module (mlg logging)
   #:export (
             add-num-or-false
             array-absolute-sum-of-slice
@@ -25,12 +26,15 @@
             array-scale-and-add-slice-to-slice!
             array-scale-slice!
             array-sum-product-of-slice-pairs
+            binomial-coefficient
             cast-int32-to-uint32
             cast-uint32-to-int32
             cumulative-sum
             dct-f64-forward-8-point
             dct-f64-inverse-8-point
             deal
+            gauss-legendre-quadrature
+            legendre-polynomial
             lognot-uint16
             lognot-uint32
             lognot-uint64
@@ -135,6 +139,23 @@ of the the products of the elements of two array slices."
   ;; FIXME: not implementsed
   (error 'not-implemented))
 
+(define (binomial-coefficient n k)
+  "Computes the binomial coefficient 'n choose k'."
+  (if (> k n)
+      0
+      (if (or (= k 0) (= k n))
+          1
+          ;; else
+          (let loop ((val 1)
+                     (n n)
+                     (k k))
+            (if (= k 0)
+                val
+                ;; else
+                (loop (* val (/ n k))
+                      (1- n)
+                      (1- k)))))))
+
 (define (cast-int32-to-uint32 x)
   (if (< x 0)
       (- #x100000000 (logand #x7fffffff (abs x)))
@@ -208,6 +229,80 @@ LOW (inclusive) and HIGH (exclusive)."
           (loop (1+ i)
                 (append (take lst j) (drop lst (1+ j)))
                 (append out (list (list-ref lst j))))))))
+
+
+(define (gauss-legendre-quadrature proc n)
+  "Integrate PROC, a procedure that maps a number to a number,
+over the range -1 to 1, using a Nth order approximation, where
+2 <= N <= 6"
+  (let ((nodes/weights '(;; n = 2
+                         ((-0.5773502692 . 1.0000000000)
+                          ( 0.5773502692 . 1.0000000000))
+                         ;; n = 3
+                         ((-0.7745966692 . 0.5555555556)
+                          ( 0.0000000000 . 0.8888888889)
+                          ( 0.7745966692 . 0.5555555556))
+                         ;; n = 4
+                         ((-0.8611363316 . 0.3478588451)
+                          ( 0.3399810436 . 0.6521451549)
+                          ( 0.8611363316 . 0.3478588451))
+                         ;; n = 5
+                         ((-0.9061797459 . 0.2369268851)
+                          (-0.5384693101 . 0.4786286705)
+                          ( 0.0000000000 . 0.5688888889)
+                          ( 0.5384693101 . 0.4786286705)
+                          ( 0.9061797459 . 0.2369268851))
+                         ;; n = 6
+                         ((-0.9324695142 . 0.1713244924)
+                          (-0.6612093865 . 0.3607615730)
+                          (-0.2386191861 . 0.4679139346)
+                          ( 0.2386191861 . 0.4679139346)
+                          ( 0.6612093865 . 0.3607615730)
+                          ( 0.9324695142 . 0.1713244924)))))
+    (let ((nw (list-ref nodes/weights (- n 2))))
+      (let loop ((i 0)
+                 (sum 0.0))
+        (if (< i n)
+            (let ((nw-cur (list-ref nw i)))
+              (format #t "nw-cur ~s nw ~s i ~s ~%" nw-cur nw i)
+              (loop (1+ i)
+                    (+ sum (* (cdr nw-cur)
+                              (proc (car nw-cur))))))
+            ;; else
+            sum)))))
+
+(define (legendre-polynomial n x)
+  "Computes the nth order Legendre polynomial at the location
+x, where x is [-1, 1]."
+  ;; Using the explicit expression
+  ;; P_n(x) = (1 / 2^n) * SUM_0^floor(n/2) -1^m (binom n m) (binom 2n-2m n) x&(n-2m
+  ;;
+  (cond
+   ((= n 0)
+    1)
+   ((= n 1)
+    x)
+   ((= n 2)
+    (* 1/2 (+ (* 3 x x) -1)))
+   ((= n 3)
+    (* 1/2 (+ (* 5 x x x) (* -3 x))))
+   ((= n 4)
+    (* 1/8 (+ (* 35 (expt x 4)) (* -30 x x) 3)))
+   (else 
+    (let ((A (/ 1 (expt 2 n)))
+          (range (floor (/ n 2))))
+      (* A
+         (let loop ((m 0)
+                    (sum 0))
+           (if (<= m range)
+               (let ((sgn (expt -1 m))
+                     (B (binomial-coefficient n m))
+                     (C (binomial-coefficient (- (* 2 n) (* 2 m)) n))
+                     (D (expt 1 (- n (* 2 m)))))
+                 (loop (1+ m)
+                       (+ sum (* B C D))))
+               ;; else
+               sum)))))))
 
 (define (lognot-uint8 x)
   "Find the bitwise complement of an 8-bit unsigned integer."
