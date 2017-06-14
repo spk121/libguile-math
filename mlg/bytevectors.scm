@@ -21,6 +21,7 @@
   #:use-module (rnrs io ports)
   #:use-module (srfi srfi-1)
   #:export (
+            f32vector-max
             bytevector-u8->escaped-string-full
             bytevector-list-append
             bytevector-list-length
@@ -35,6 +36,15 @@
 ;; For read-bytevector
 (define *block-size* (* 16 1024))
 (define *maximum-read* #xffffffffffffffff)
+
+(define (f32vector-max bv)
+  (let ((len (f32vector-length bv))
+        (hi -3.40282347e+38))
+    (do ((i 0 (1+ i))) ((>= i len))
+      (let ((val (f32vector-ref bv i)))
+        (if (> val hi)
+            (set! hi val))))
+    hi))
 
 (define (bytevector-u8->escaped-string-full
          bv
