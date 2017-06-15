@@ -38,6 +38,7 @@
             lognot-uint32
             lognot-uint64
             lognot-uint8
+            make-2d-f32-array
             monotonic-list-pos-to-coord
             pythag
             quadratic-roots
@@ -318,6 +319,11 @@ x, where x is [-1, 1]."
 (define (lognot-uint64 x)
   "Find the bitwise complement of a 64-bit unsigned integer."
   (lognot-uint x 8))
+
+(define (make-2d-f32-array height width)
+  "Make a standard 2D array for floating point math. It is
+initialized to zero."
+  (make-typed-array 'f32 0.0 height width))
 
 (define (monotonic-list-pos-to-coord lst x)
   "Given a list of monotonically increasing integers (x1 x2 x3 ...)
