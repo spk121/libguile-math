@@ -30,7 +30,11 @@
             get-user-config-dir
             get-user-cache-dir
             get-user-runtime-dir
-            get-user-special-dir))
+            get-user-special-dir
+
+            ;; From binary
+            utils-extensions
+            getpagesize))
 
 (define (strip-end-separator str separator)
   "Return a substring of STR that does not include
@@ -267,3 +271,6 @@ user directory."
                        (else
                         ;; This entry is malformed, so keep looking
                         (loop (read-line config-port))))))))))))))
+
+(define (utils-extensions)
+  (load-extension "libguile-mlg" "init_utils_lib"))

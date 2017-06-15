@@ -18,7 +18,6 @@
 
 (define-module (mlg math)
   #:use-module (srfi srfi-1)
-  #:use-module (mlg logging)
   #:export (
             add-num-or-false
             array-absolute-sum-of-slice
@@ -300,7 +299,7 @@ x, where x is [-1, 1]."
                      (C (binomial-coefficient (- (* 2 n) (* 2 m)) n))
                      (D (expt 1 (- n (* 2 m)))))
                  (loop (1+ m)
-                       (+ sum (* B C D))))
+                       (+ sum (* sgn B C D))))
                ;; else
                sum)))))))
 
