@@ -20,12 +20,25 @@
   #:use-module (mlg logging)
   #:use-module (mlg typechecking)
   #:export (
+            list-find-next-largest-entry
 	    list-range-check-n?
 	    list-range-check-right-n?
 	    sublist
 	    take-n
 	    take-right-n
 	    ))
+
+(define (list-find-next-largest-entry lst val)
+  "Given a list of numeric values, find the smallest entry
+in lst that is greater than val."
+  (fold (lambda (cur prev)
+          (if (and (> cur val)
+                   (or (not prev)
+                       (< cur prev)))
+              cur
+              prev))
+        #f
+        lst))
 
 (define (list-range-check-n? lst n low high)
   "Return #t if the first N elements in the list is between
