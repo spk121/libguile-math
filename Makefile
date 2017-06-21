@@ -29,7 +29,8 @@ SCM_SCRIPT_OBJ := $(patsubst %,%.go,$(SCM_SCRIPTS))
 C_SRC = \
  mlg/math.c \
  mlg/journal.c \
- mlg/strings.c
+ mlg/strings.c \
+ mlg/utils.c
 
 C_OBJ := $(patsubst %.c,%.o,$(C_SRC))
 

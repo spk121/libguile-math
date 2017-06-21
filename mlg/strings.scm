@@ -19,6 +19,7 @@
 (define-module (mlg strings)
   #:use-module (mlg characters)
   #:use-module (ice-9 regex)
+  #:use-module (ice-9 format)
   #:use-module (mlg assert)
   #:use-module (mlg logging)
   #:export (string-crc16

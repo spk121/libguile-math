@@ -18,7 +18,6 @@
 
 (define-module (mlg math)
   #:use-module (srfi srfi-1)
-  #:use-module (mlg logging)
   #:export (
             add-num-or-false
             array-absolute-sum-of-slice
@@ -39,6 +38,7 @@
             lognot-uint32
             lognot-uint64
             lognot-uint8
+            make-2d-f32-array
             monotonic-list-pos-to-coord
             pythag
             quadratic-roots
@@ -300,7 +300,7 @@ x, where x is [-1, 1]."
                      (C (binomial-coefficient (- (* 2 n) (* 2 m)) n))
                      (D (expt 1 (- n (* 2 m)))))
                  (loop (1+ m)
-                       (+ sum (* B C D))))
+                       (+ sum (* sgn B C D))))
                ;; else
                sum)))))))
 
@@ -319,6 +319,11 @@ x, where x is [-1, 1]."
 (define (lognot-uint64 x)
   "Find the bitwise complement of a 64-bit unsigned integer."
   (lognot-uint x 8))
+
+(define (make-2d-f32-array height width)
+  "Make a standard 2D array for floating point math. It is
+initialized to zero."
+  (make-typed-array 'f32 0.0 height width))
 
 (define (monotonic-list-pos-to-coord lst x)
   "Given a list of monotonically increasing integers (x1 x2 x3 ...)
@@ -341,6 +346,36 @@ Thus ((list 5 10 15) 7) => (1 2)
 
 (define (pythag x y)
   (sqrt (+ (* x x) (* y y))))
+
+(define (sign x)
+  (if (< x 0)
+      -1
+      1))
+
+(define (rotg sa sb)
+  "Construct Givens plane rotation.
+Given a vector (sa, sb). Compute the length, the ???, and the
+direction sine and cosine."
+  (let ((asa (abs sa))
+        (asb (abs sb)))
+    (let ((sgn (if (< asa asb)
+                   (sign sa)
+                   (sign sb)))
+          (scale (+ asa asb)))
+      (if (zero? scale)
+          ;; (R Z C S) 
+          '(0.0 0.0 1.0 0.0)
+          ;; else
+          (let* ((r (* sgn scale (pythag (/ sa scale) (/ sb scale))))
+                 (c (/ sa r))
+                 (s (/ sb r))
+                 (z (if (> asa asb)
+                        s
+                        ;; else
+                        (if (zero? c)
+                            1.0
+                            (/ 1.0 c)))))
+            (list r z c s))))))
 
 (define (quadratic-roots a b c)
   "Given a quadratic equation Ax^2 + Bx + C = 0, find the roots."
