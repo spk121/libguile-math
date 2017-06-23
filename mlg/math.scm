@@ -473,6 +473,36 @@ Thus ((list 5 10 15) 7) => (1 2)
 (define (pythag x y)
   (sqrt (+ (* x x) (* y y))))
 
+(define (sign x)
+  (if (< x 0)
+      -1
+      1))
+
+(define (rotg sa sb)
+  "Construct Givens plane rotation.
+Given a vector (sa, sb). Compute the length, the ???, and the
+direction sine and cosine."
+  (let ((asa (abs sa))
+        (asb (abs sb)))
+    (let ((sgn (if (< asa asb)
+                   (sign sa)
+                   (sign sb)))
+          (scale (+ asa asb)))
+      (if (zero? scale)
+          ;; (R Z C S) 
+          '(0.0 0.0 1.0 0.0)
+          ;; else
+          (let* ((r (* sgn scale (pythag (/ sa scale) (/ sb scale))))
+                 (c (/ sa r))
+                 (s (/ sb r))
+                 (z (if (> asa asb)
+                        s
+                        ;; else
+                        (if (zero? c)
+                            1.0
+                            (/ 1.0 c)))))
+            (list r z c s))))))
+
 (define (quadratic-roots a b c)
   "Given a quadratic equation Ax^2 + Bx + C = 0, find the roots."
   (if (zero? a)
