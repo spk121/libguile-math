@@ -39,6 +39,9 @@
             lognot-uint64
             lognot-uint8
             make-2d-f32-array
+            make-2d-f32-column-vector
+            make-2d-f32-row-vector
+            transpose-2d-f32-array
             monotonic-list-pos-to-coord
             pythag
             quadratic-roots
@@ -320,10 +323,133 @@ x, where x is [-1, 1]."
   "Find the bitwise complement of a 64-bit unsigned integer."
   (lognot-uint x 8))
 
-(define (make-2d-f32-array height width)
-  "Make a standard 2D array for floating point math. It is
+(define (f32-2d-make-array m n)
+  "Make a standard 2D array m (rows) by n (columns) matrix for floating
+point math. It is initialized to zero."
+  (make-typed-array 'f32 0.0 `(1 ,m) `(1 ,n)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; F32D2 Arrays and Vectors
+;;
+
+;; The following procedure are for two-dimensional float32 arrays and
+;; vectors that follow standard linear and matrix algebra conventions.
+
+;; Vectors are arrays with width=1 column vectors or height=1 row vectors.
+
+;; Array sizes are listed as m by n, aka row by cols, aka height by width.
+;; Array indices are (i,j), aka (y,x), aka (row,col)
+;; Array limits are 1 <= i <= m. 1 <= j <= n.
+
+(define (f32d2-make-column-vector m)
+  "Make a standard 1D column vector with m rows for floating point math,
 initialized to zero."
-  (make-typed-array 'f32 0.0 height width))
+  (f32d2-make-array m 1))
+
+(define (f32d2-make-row-vector n)
+  "Make a standard 1D row vector with n columns for floating point math,
+initialized to zero."
+  (f32d2-make-array 1 n))
+
+(define (f32d2-height arr)
+  "The height (aka y_max, aka m) of the given array"
+  )
+
+(define (f32d2-width arr)
+  "The width (aka x_max, aka n) of the given array"
+  )
+
+(define (f32d2-length arr)
+  "The longer of the height or width of the given array.
+For a both a row vector and a column vector, it returns the number of
+elements."  )
+
+(define (f32d2-size arr)
+  "Returns the height by width, (aka m by n, aka y_max by x_max)
+for the given array."
+  )
+
+(define (f32d2-zeros m n)
+  "Create an m by n array of all zeros."
+  )
+
+(define (f32d2-ones m n)
+  "Create a m by n array of all ones."
+  )
+
+(define (f32d2-rand m n)
+  "Create a m by n array of random numbers between zero and one."
+  )
+
+(define (f32d2-identity m n)
+  "Create an m by n matrix that is one on the main diagonal
+and zero elsewhere"
+  )
+
+(define (f32d2-vector-to-diagonal vec)
+  "Given a row or column vector of length n,
+returns a diagonal n by n matrix with the elements of
+the vector as the diagonal."
+  )
+
+(define (f32d2-horizontal-concatenate arr1 arr2)
+  "Given two arrays with the same number of rows, return
+a new array which is the horizontal concatenation of
+the arrays."
+  )
+
+(define (f32d2-vertical-concatenate arr1 arr2)
+  "Given two arrays with the same number of columns, return
+a new array which is the horizontal concatenation of
+the arrays."
+  )
+
+;; f32d2-linspace - linearly spaced vector
+;; f32d20logspace - log spaced vector
+;; f32-meshgrid - linearly spaced 2d-grid
+
+;; is-row-vector? is-col-vector? is-matrix? is-empty?
+;; sort
+;; flip
+;; rot90
+;; transpose
+;;
+
+
+(define (f32d2-array-row-count arr)
+  (second (first (array-shape arr))))
+
+(define (f32d2-array-col-count arr)
+  (second (second (array-shape arr))))
+
+(define (f32d2-array-dimensions arr)
+  (list (f32d2-array-row-count arr)
+        (f32d2-array-col-count arr)))
+
+(define (f32d2-array-sum arr1 arr2)
+  "Sum the elements of two f32d2-arrays.  The arrays must have
+the same dimensions."
+  (let ((dim1 (f32d2-array-dimensions arr1))
+        (dim2 (f32d2-array-dimensions arr2)))
+    (let ((arr3 (apply f32d2-make-array dim1)))
+      (do ((j 1 (1+ j))) ((> j (second dim1)))
+        (do ((i 1 (1+ i))) ((> i (first dim1)))
+          (array-set! arr3
+                      (+ (array-ref arr1 i j)
+                         (array-ref arr2 i j))
+                      i j)))
+      arr3)))
+
+(define (f32d2-transpose-array arr)
+  (let* ((orig-row (f32d2-array-row-count arr))
+         (orig-col (f32d2-array-col-count arr)))
+    (let ((arr2 (f32d2-make-array orig-col orig-row)))
+      (do ((i 1 (1+ i))) ((> i orig-row))
+        (do ((j 1 (1+ j))) ((> j orig-col))
+          (array-set! arr2
+                      (array-ref arr i j)
+                      j i)))
+      arr2)))
 
 (define (monotonic-list-pos-to-coord lst x)
   "Given a list of monotonically increasing integers (x1 x2 x3 ...)
