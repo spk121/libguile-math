@@ -36,7 +36,8 @@ C_OBJ := $(patsubst %.c,%.o,$(C_SRC))
 
 .SUFFIXES: .c .o .scm .go
 
-GUILE_VERSION = 2.0
+#GUILE_VERSION = $(shell guile --version | head -1 | awk '{print $4}')
+GUILE_VERSION = 2.2
 
 CFLAGS = -g -O1 \
   -Wall `pkg-config --cflags guile-$(GUILE_VERSION) libsystemd` -fpic
