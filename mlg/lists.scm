@@ -74,8 +74,10 @@ than N elements, check all the elements in the list."
 		 (and (number? x) (<= low x) (<= x high)))
 	       sublist))))
 
-(define (sublist list start end)
-  (drop (take list end) start))
+(define (sublist lst start end)
+  "Extract a sublist from lst between start (inclusive) and
+end (exclusive)."
+  (drop (take lst end) start))
 
 (define (take-n lst n)
   "Return a list containing the first N elements of LST.  If the list
