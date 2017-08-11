@@ -45,6 +45,8 @@
             tolower
             toupper
             U+
+            char-count-cells
+            char-combining-mark?
             ))
 
 (define (ascii-isalnum? c)
@@ -177,3 +179,26 @@ Note that this includes both punctuation and symbols."
 (define (U+ x)
   "A shorthand for integer->char."
   (integer->char x))
+
+(define (char-get-display-representation-of-control-char c)
+  "The character to use when displaying controls in \"^X\" form"
+  (integer->char (+ (char->integer c) 64)))
+
+(define (char-count-cells chr x tabSize)
+  "Number of cells a character CHR at column X would take up"
+  (cond
+   [(eqv? chr #\nul)
+    0]
+   [(eqv? chr #\tab)
+    (- tabSize (modulo x tabSize))]
+   [(ascii-iscntrl? chr)
+    ;; Add 1 for the caret '^'
+    (+ 1 (wcwidth (char-get-display-representation-of-control-char chr)))]
+   [else
+    (wcwidth chr)]))
+
+(define (char-combining-mark? c)
+  "Return #t if this is a combining mark, like an accent"
+  (member (char-general-category c) '(Mn Mc Me)))
+
+(load-extension "libguile-mlg" "init_chars_lib")

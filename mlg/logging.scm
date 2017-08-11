@@ -736,7 +736,8 @@ the current error or output port."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (logging-init)
-  (set! *log-writer-func* log-writer-default)
+  ;; (set! *log-writer-func* log-writer-default)
+  (set! *log-writer-func* log-writer-journal)
   (set! *default-log-func* log-default-handler)
 
   ;; glib-init.c:85 g_log_msg_prefix
