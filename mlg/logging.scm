@@ -64,6 +64,12 @@
 	   log-debug-time
 	   ))
 
+(cond-expand (guile-2.2
+              )
+             (else
+              (define (frame-procedure-name F)
+                (procedure-name (frame-procedure F)))))
+
 (define-syntax __FILE__
   (syntax-rules ()
     ((_)
@@ -84,9 +90,9 @@
      (let ((stk (stack->vector (make-stack #t))))
        (let loop ((i 1))
 	 (cond
-	  ((and (frame-procedure (vector-ref stk i))
-		(procedure-name (frame-procedure (vector-ref stk i))))
-	   (let ((pname (procedure-name (frame-procedure (vector-ref stk i)))))
+	  ((and (vector-ref stk i)
+		(frame-procedure-name (vector-ref stk i)))
+	   (let ((pname (frame-procedure-name (vector-ref stk i))))
 	     (cond
 	      ((eqv? pname '%start-stack)
 	       "(top level)")
@@ -131,8 +137,7 @@
 	   (out "...\n"))
        (let loop ((i 1))
 	 (let* ((frame (vector-ref stk i))
-		(name (and (frame-procedure frame) 
-			   (procedure-name (frame-procedure frame)))))
+		(name (frame-procedure-name frame)))
 	   (set! out
 	     (string-append out
 			    (with-output-to-string
