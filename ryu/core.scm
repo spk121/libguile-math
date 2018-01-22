@@ -846,7 +846,7 @@ Else return on-failure."
 (define (?: test on-success on-failure)
   "If test is unequal to #f, return on-success.
 Else return on-failure."
-  (if (not test)
+  (if test
       on-success
       on-failure))
 
