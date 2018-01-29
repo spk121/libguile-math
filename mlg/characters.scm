@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg characters) - more helper functions for characters
-;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2018 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -44,6 +44,7 @@
             isupper?
             isxdigit?
             is-portable-character-set?
+            is-valid-posix-make-macro-name-char?
             tolower
             toupper
             U+
@@ -182,6 +183,13 @@ Note that this includes both punctuation and symbols."
       (char=? c #\page)
       (char=? c #\space)
       (and (char>=? c #\!) (char<=? c #\~))))
+
+(define (is-valid-posix-make-macro-name-char? c)
+  "Return #t is C is a character that would be valid is a POSIX
+make macro name, e.g., that it is ASCII alphanumeric, period or underscore."
+  (or (char=? c #\.)
+      (char=? c #\_)
+      (ascii-isalnum? c)))
 
 (define (ascii-is-portable-character-set? c)
   "Return #t if C is in the POSIX-defined Portable Character Set."

@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg strings) - more helper functions for strings
-;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2018 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -34,7 +34,8 @@
             string-starts-with?
             string-strip-escapes
             string->ed-escaped-string
-            string-x-cell->x-data))
+            string-x-cell->x-data
+            string-is-valid-posix-make-macro-name?))
 
 (define (string-ends-with? str char)
   "Return #t is the last character in string STR
@@ -576,5 +577,11 @@ spaces.  If PAD is true, the end of the line is padded with spaces."
      ;; End of line space padding
      (make-string right-padding #\space))))
 
+(define (string-is-valid-posix-make-macro-name? str)
+  "Return #t if STR would be a valid name for a macro in a POSIX makefile."
+  (and (> (string-length str) 0)
+       (not (string-index str
+                          (lambda (c)
+                            (not (is-valid-posix-make-macro-name-char? c)))))))
 
 (load-extension "libguile-mlg" "init_strings_lib")
