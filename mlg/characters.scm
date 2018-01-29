@@ -30,6 +30,7 @@
             ascii-isspace?
             ascii-isupper?
             ascii-isxdigit?
+            ascii-is-portable-character-set?
             char->numeric-value
             isalnum?
             isalpha?
@@ -42,6 +43,7 @@
             isspace?
             isupper?
             isxdigit?
+            is-portable-character-set?
             tolower
             toupper
             U+
@@ -167,6 +169,23 @@ Note that this includes both punctuation and symbols."
 (define (isxdigit? c)
   "Return #t if C is hexadecimal digit."
   (char-set-contains? char-set:hex-digit c))
+
+(define (is-portable-character-set? c)
+  "Return #t if C is in the POSIX-defined Portable Character Set."
+  (or (char=? c #\null)
+      (char=? c #\alarm)
+      (char=? c #\backspace)
+      (char=? c #\tab)
+      (char=? c #\return)
+      (char=? c #\newline)
+      (char=? c #\vtab)
+      (char=? c #\page)
+      (char=? c #\space)
+      (and (char>=? c #\!) (char<=? c #\~))))
+
+(define (ascii-is-portable-character-set? c)
+  "Return #t if C is in the POSIX-defined Portable Character Set."
+  (is-portable-character-set? c))
 
 (define (tolower c)
   "Return the lowercase character version of C"
