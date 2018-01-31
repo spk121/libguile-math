@@ -27,8 +27,14 @@
 	    lognot-uint64
 
 	    ;; 6.5.4 Cast operators
+	    cast-int8-to-uint8
+	    cast-uint8-to-int8
+	    cast-int16-to-uint16
+	    cast-uint16-to-int16
 	    cast-int32-to-uint32
 	    cast-uint32-to-int32
+	    cast-int64-to-uint64
+	    cast-uint64-to-int64
 	    
 	    ;; 6.5.5 Multiplicative operators
 	    c*
@@ -304,6 +310,7 @@
 	    RAND_MAX
 	    atof
 	    atoi
+	    strtod
 	    strtol
 	    strtol-idx
 	    strtof
@@ -586,7 +593,7 @@ required single characters replaced with trigraph sequences."
 (define (signed-limit-neg b)
   (- (expt 2 (1- (bytes-to-bits b)))))
 
-(define-inlinable (lognot-uint x b)
+(define (lognot-uint x b)
   (- (unsigned-limit b) (logand (unsigned-limit b) x)))
 
 (define (lognot-uint8 x)
@@ -624,6 +631,26 @@ required single characters replaced with trigraph sequences."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.4 Cast operators
 
+(define (cast-int8-to-uint8 x)
+  (if (< x 0)
+      (- #x100 (logand #x7f (abs x)))
+      (logand #x7F x)))
+
+(define (cast-uint8-to-int8 x)
+  (if (<= x #x7f)
+      x
+      (- (- #x100 (logand x #xff)))))
+
+(define (cast-int16-to-uint16 x)
+  (if (< x 0)
+      (- #x10000 (logand #x7fff (abs x)))
+      (logand #x7FFF x)))
+
+(define (cast-uint16-to-int16 x)
+  (if (<= x #x7fff)
+      x
+      (- (- #x10000 (logand x #xffff)))))
+
 (define (cast-int32-to-uint32 x)
   (if (< x 0)
       (- #x100000000 (logand #x7fffffff (abs x)))
@@ -633,6 +660,16 @@ required single characters replaced with trigraph sequences."
   (if (<= x #x7fffffff)
       x
       (- (- #x100000000 (logand x #xffffffff)))))
+
+(define (cast-int64-to-uint64 x)
+  (if (< x 0)
+      (- #x10000000000000000 (logand #x7fffffffffffffff (abs x)))
+      (logand #x7FFFFFFFFFFFFFFF x)))
+
+(define (cast-uint64-to-int64 x)
+  (if (<= x #x7fffffffffffffff)
+      x
+      (- (- #x10000000000000000 (logand x #xffffffffffffffff)))))
 
 ;; No close analog in Guile.
 
