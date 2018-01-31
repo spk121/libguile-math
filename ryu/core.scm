@@ -48,6 +48,14 @@
 	    ;; 6.5.7 Bitwise shift
 	    <<
 	    >>
+	    u8<<
+	    u8>>
+	    u16<<
+	    u16>>
+	    u32<<
+	    u32>>
+	    u64<<
+	    u64>>
 	    
 	    ;; 6.5.9 Equality operators
 	    c==
@@ -95,6 +103,7 @@
 
 	    ;; 7.2.1.1 The assert macro
 	    cassert
+	    assert
 
 	    ;; 7.3.5.1 The cacos functions
 	    cacos
@@ -775,6 +784,70 @@ and _b is an integer, the return value is a pointer."
   "Right-shift A by B bits."
   (ash a (- b)))
 
+(define (u8<< a b)
+  "Left shift A by B bits, presuming A is limited to 8 bits.  If A is
+negative, the behavior is unspecified."
+  (let* ((a8 (logand #xff (if (>= a 0)
+				 a
+				 (cast-int8-to-uint8 a))))
+	 (shift8 (ash a8 b)))
+    (if (>= a 0)
+	(logand #xff shift8)
+	(cast-uint8-to-int8 (logand #xff shift8)))))
+
+(define (u16<< a b)
+  "Left shift A by B bits, presuming A is limited to 16 bits.  If A is
+negative, the behavior is unspecified."
+  (let* ((a16 (logand #xffff (if (>= a 0)
+				 a
+				 (cast-int16-to-uint16 a))))
+	 (shift16 (ash a16 b)))
+    (if (>= a 0)
+	(logand #xffff shift16)
+	(cast-uint16-to-int16 (logand #xffff shift16)))))
+
+(define (u32<< a b)
+  "Left shift A by B bits, presuming A is limited to 32 bits.  If A is
+negative, the behavior is unspecified."
+  (let* ((a32 (logand #xffffffff (if (>= a 0)
+				 a
+				 (cast-int32-to-uint32 a))))
+	 (shift32 (ash a32 b)))
+    (if (>= a 0)
+	(logand #xffffffff shift32)
+	(cast-uint32-to-int32 (logand #xffffffff shift32)))))
+
+(define (u64<< a b)
+  "Left shift A by B bits, presuming A is limited to 64 bits.  If A is
+negative, the behavior is unspecified."
+  (let* ((a64 (logand #xffffffffffffffff (if (>= a 0)
+				 a
+				 (cast-int64-to-uint64 a))))
+	 (shift64 (ash a64 b)))
+    (if (>= a 0)
+	(logand #xffffffffffffffff shift64)
+	(cast-uint64-to-int64 (logand #xffffffffffffffff shift64)))))
+
+(define (u8>> a b)
+  "Right shift A by B bits, presuming A is limited to 8 bits.  If A is
+negative, the behavior is unspecified."
+  (u8<< a (- b)))
+
+(define (u16>> a b)
+  "Right shift A by B bits, presuming A is limited to 16 bits.  If A is
+negative, the behavior is unspecified."
+  (u16<< a (- b)))
+
+(define (u32>> a b)
+  "Right shift A by B bits, presuming A is limited to 32 bits.  If A is
+negative, the behavior is unspecified."
+  (u32<< a (- b)))
+
+(define (u64>> a b)
+  "Right shift A by B bits, presuming A is limited to 64 bits.  If A is
+negative, the behavior is unspecified."
+  (u64<< a (- b)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 6.5.9 Equality operators
 
@@ -1174,8 +1247,31 @@ Else return on-failure."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 7.2.1.1 The assert macro
 
-;; If expression compares equal to zero, the assert macro writes
+;; If expression compares equal to zero, the cassert macro writes
 ;; information about the call that failed, and then calls abort.
+
+(define-syntax cassert
+  (lambda (x)
+    (syntax-case x ()
+      ((_ expression)
+       #'(let ((ret expression))
+           (when (zero? ret)
+	     (format (current-error-port) "~a:~a: assertion failed: ~a = ~s"
+		     (__FILE__) (__LINE__) 'expression expression)
+	     (raise SIGABRT)
+	     (primitive-_exit 1)))))))
+
+;; If the expression is false, signal an error with a message about
+;; the failing expression.
+(define-syntax assert
+  (lambda (x)
+    (syntax-case x ()
+      ((_ expression)
+       #'(let ((ret expression))
+           (unless ret
+             (error
+              (format #f "~a:~a: assertion failed: ~a = ~s"
+                      (__FILE__) (__LINE__) 'expression expression))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1331,9 +1427,9 @@ That is, returns z, unless z is infinite."
 	#f)))
 
 (define (locale-uint8->char x)
-  "Given an 8-bit integer, return a character.  Make
-the conversion using the current locale. Return #f
-on failure."
+  "Given an 8-bit integer, return a character.  Make the conversion
+using the current locale. Return #f on failure.  For the common case
+of UTF-8, values between 128 and 255 will return #f."
   (if (and (exact-integer? x)
 	   (<= 0 x)
 	   (<= x UINT8_MAX))
