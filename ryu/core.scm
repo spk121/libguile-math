@@ -1624,11 +1624,11 @@ to which the 8-bit integer maps."
   "Return the 8-bit integer representation of the upper-case letter
 to which the 8-bit integer maps."
   (let* ((c (%cchar _c))
-	 (L (and c (char-downcase c))))
+	 (L (and c (char-upcase c))))
     (%char->cchar L)))
 
 (define (toupper c)
-  (char-downcase c))
+  (char-upcase c))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
