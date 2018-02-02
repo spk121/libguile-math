@@ -3,7 +3,7 @@
   #:use-module (ice-9 match)
   #:use-module (system foreign)
   #:use-module (srfi srfi-1)
-  #:export (sprintf
+  #:export (asprintf
 	    fprintf
 	    printf
 	    ))
@@ -907,7 +907,7 @@ FIELD_WIDTH is the padding."
     ;; I could range check things here.
     val))
 
-(define (sprintf _format-str . _args)
+(define (asprintf _format-str . _args)
   "Given a format string and associated arguments, this returns
 a formatted string."
   (let loop ((output (string-copy ""))
@@ -933,7 +933,7 @@ a formatted string."
 	       (string-append output substr))))))))
 
 (define (printf _format-str . _args)
-  (display (apply sprintf (append (list _format-str) _args))))
+  (display (apply asprintf (append (list _format-str) _args))))
 
 (define (fprintf port _format-str . _args)
-  (display (apply sprintf (append (list _format-str) _args)) port))
+  (display (apply asprintf (append (list _format-str) _args)) port))
