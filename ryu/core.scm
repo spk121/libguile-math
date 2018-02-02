@@ -35,7 +35,7 @@
 	    cast-uint32-to-int32
 	    cast-int64-to-uint64
 	    cast-uint64-to-int64
-	    
+
 	    ;; 6.5.5 Multiplicative operators
 	    c*
 	    c/
@@ -56,13 +56,13 @@
 	    u32>>
 	    u64<<
 	    u64>>
-	    
+
 	    ;; 6.5.9 Equality operators
 	    c==
 	    ==
 	    c!=
 	    !=
-	    
+
 	    ;; 6.5.10 Bitwise AND operator
 	    bitand
 
@@ -96,7 +96,7 @@
 
 	    ;; 6.8.5 Iteration statements
 	    for
-	    
+
 	    ;; 6.10.8 Predefined macro names
 	    __FILE__
 	    __LINE__
@@ -119,7 +119,7 @@
 
 	    ;; 7.3.5.5 The csin functions
 	    csin
-	    
+
 	    ;; 7.4 Character handling
 	    locale-uint8->char
 
@@ -188,7 +188,7 @@
 	    ;; 7.8.2.3 The strtoimax and strtoumax functions
 	    strtoimax
 	    strtoimax-idx
-	    
+
 	    ;; 7.10 Sizes of integer types <limits.h>
 	    INT_MIN
 	    INT_MAX
@@ -211,11 +211,11 @@
 	    ;; 7.12.3.4 The isnan macro
 	    cisnan
 	    isnan?
-	    
+
 	    ;; 7.12.3.6 The signbit macro
 	    csignbit
 	    signbit
-	    
+
 	    ;; 7.12.4.4 The atan2 functions
 	    atan2
 
@@ -254,13 +254,13 @@
 	    INT64_MIN
 	    INT64_MAX
 	    UINT64_MAX
-	    
+
 	    ;; 7.21.4.1 The remove function
 	    remove
 
 	    ;; 7.21.4.2 The rename function
 	    rename
-	    
+
 	    ;; 7.21.5.1 The fclose function
 	    fclose
 
@@ -306,7 +306,7 @@
 	    remquo
 	    fdim
 	    fma
-	    
+
 	    ;; <setjmp.h>
 	    ;; <signal.h>
 	    ;; <stdalign.h>
@@ -316,7 +316,7 @@
 	    ;; <stdint.h>
 
 	    ;; <stdio.h>
-	    
+
 	    ;; <stdlib.h>
 	    EXIT_SUCCESS
 	    EXIT_FAILURE
@@ -332,7 +332,7 @@
 	    malloc
 	    realloc
 	    abort
-	    
+
 
 	    ;; <stdnoreturn.h>
 	    ;; <string.h>
@@ -360,7 +360,7 @@
 	    strerror
 
 	    ;; <tgmath.h>
-	    
+
 	    ;; <threads.h>
 	    ;; <time.h>
 	    ;; <uchar.h>
@@ -369,7 +369,7 @@
 	    mbtowc
 	    mbstowcs
 	    wcstombs
-	    
+
 	    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -720,7 +720,7 @@ any non-integer rational operands to real numbers."
       (quotient a b))
      (else
       (/ (exact->inexact a) (exact->inexact b))))))
-   
+
 (define (c% _a _b)
   "Compute the modulo of two values, either numbers or pointers."
   (let ((a (if (pointer? _a) (pointer-address _a) _a))
@@ -745,7 +745,7 @@ and _b is an integer, it returns a pointer."
 	(+ a b))
        (else
 	(+ (exact->inexact a) (exact->inexact b))))))))
-  
+
 (define (c- _a _b)
   "Subtract two values, either numbers or pointers, whilst promoting
 any non-integer rational operands to real numbers. If _a is a pointer
@@ -987,12 +987,12 @@ Else return on-failure."
     ((_ x a)
      (set! x (c- x a)))))
 
-(define-syntax *= 
+(define-syntax *=
   (syntax-rules ()
     ((_ x a)
      (set! x (c* x a)))))
 
-(define-syntax /= 
+(define-syntax /=
   (syntax-rules ()
     ((_ x a)
      (set! x (c/ x a)))))
@@ -1002,17 +1002,17 @@ Else return on-failure."
     ((_ x a)
      (set! x (c% x a)))))
 
-(define-syntax &= 
+(define-syntax &=
   (syntax-rules ()
     ((_ x a)
      (set! x (bitand x a)))))
 
-(define-syntax \|= 
+(define-syntax \|=
   (syntax-rules ()
     ((_ x a)
      (set! x (bitor x a)))))
 
-(define-syntax ^= 
+(define-syntax ^=
   (syntax-rules ()
     ((_ x a)
      (set! x (bitxor x a)))))
@@ -1134,7 +1134,7 @@ Else return on-failure."
                (let lp ()
                  (call-with-prompt
                      continue-tag
-                   (lambda () 
+                   (lambda ()
                      (define-syntax #,(datum->syntax #'for 'continue)
                        (lambda (x)
                          (syntax-case x ()
@@ -1708,7 +1708,7 @@ returned."
 ;; 7.9 Alternative spellings <iso646.h>
 
 ;; This syntactic sugar is rarely used.
-;; 
+;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 7.10 Sizes of integer types <limits.h>
@@ -1755,13 +1755,13 @@ rules for the current locale."
      ;;(cons 'mon-grouping (locale-monetary-grouping loc))
      (cons 'positive-sign (locale-monetary-positive-sign loc))
      (cons 'negative-sign (locale-monetary-negative-sign loc))
-     
+
      (cons 'currency-symbol (locale-currency-symbol #f loc))
      (cons 'monetary-fractional-digits
 	   (locale-monetary-fractional-digits #f loc))
-     (cons 'p-cs-precedes 
+     (cons 'p-cs-precedes
 	   (locale-currency-symbol-precedes-positive? #f loc))
-     (cons 'n-cs-precedes 
+     (cons 'n-cs-precedes
 	   (locale-currency-symbol-precedes-negative? #f loc))
      (cons 'p-sep-by-space
 	   (locale-positive-separated-by-space? #f loc))
@@ -1769,13 +1769,13 @@ rules for the current locale."
 	   (locale-negative-separated-by-space? #f loc))`
      (cons 'p-sign-posn (locale-monetary-positive-sign loc))
      (cons 'n-sign-posn (locale-monetary-negative-sign loc))
-     
+
      (cons 'int-curr-symbol (locale-currency-symbol #t loc))
      (cons 'int-frac-digits
 	   (locale-monetary-fractional-digits #t loc))
-     (cons 'int-p-cs-precedes 
+     (cons 'int-p-cs-precedes
 	   (locale-currency-symbol-precedes-positive? #t loc))
-     (cons 'int-n-cs-precedes 
+     (cons 'int-n-cs-precedes
 	   (locale-currency-symbol-precedes-negative? #t loc))
      (cons 'int-p-sep-by-space
 	   (locale-positive-separated-by-space? #t loc))
@@ -1889,7 +1889,7 @@ or NaN.  Else #f"
 of 2."
   (if (zero? val)
       (cons 0 0)
-      ;; 
+      ;;
       (let loop ((val val)
 		 (x   0))
 	(cond
@@ -1998,6 +1998,12 @@ handler."
   "Returns #f if x is zero. Else returns #t."
   (if (zero? x) #f #t))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.19 Common definitions <stddef.h>
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.20 Integer types <stdint.h>
+
 ;; 7.20.2.1 Limits of exact-width integers
 
 (define INT8_MIN (signed-limit-neg (sizeof int8)))
@@ -2020,6 +2026,9 @@ handler."
 (define LONG_MAX (signed-limit (sizeof long)))
 (define ULONG_MAX (unsigned-limit (sizeof unsigned-long)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.21 Input/output <stdio.h>
+
 ;; 7.21.4.1 The remove function
 ;; The remove function in C is the same as the delete-file
 ;; function in core Guile.  There is an SRFI-1 'remove'
@@ -2030,7 +2039,7 @@ handler."
 
 ;; 7.21.4.2 The rename function
 (define (rename old new)
-  "Rename causes the file whose name is the string OLD to 
+  "Rename causes the file whose name is the string OLD to
 be known by the name NEW."
   (rename-file old new))
 
@@ -2049,7 +2058,7 @@ be known by the name NEW."
 	(when (output-port? port)
 	  (force-output port))
 	(close-port port))))
-  
+
 ;; 7.21.5.2 The fflush function
 ;; Causes any unwritten data to be delivered.
 (define (fflush port)
@@ -2174,7 +2183,7 @@ file."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; <stdlib.h>
 
-;; 7.22 
+;; 7.22
 (define RAND_MAX 2147483647)
 
 (define EXIT_SUCCESS 0)
@@ -2297,7 +2306,7 @@ with optional exponent into a number."
   "Convert STR into a real number, returning both the number
 and a string containing the unused characters after the number.
 The number is one of the the following forms
-- an optional plus or minus followed by INF or INFINITY, ignoring case 
+- an optional plus or minus followed by INF or INFINITY, ignoring case
 - an optional plus or minus followed by NAN, ignoring case.
 - A string of the form NAN(<type>), where <type> is a string containing
   alphanumeric or hyphen characters.
@@ -2325,7 +2334,7 @@ The number is one of the the following forms
 				      (substring s (match:end match4)))
 				(cons 0.0
 				      (substring s 0)))))))))))))
-	
+
 
 ;; 7.22.1.4 The strtol, strtoll, strtoul, strtoull functions
 
@@ -2432,7 +2441,7 @@ processed."
   "Return a bytevector, initialize to zero whose size
 is size1 * size2."
   (make-bytevector (* size1 size2) 0))
-  
+
 ;; 7.22.3.3 The free function
 
 ;; 7.22.3.4 The malloc function
@@ -2506,7 +2515,7 @@ first few bytes do not form a character in the current locale."
 		len
 		;; else, didn't convert, so keep looping
 		(loop (1+ len)))))))))
-  
+
 (define MB_LEN_MAX 8)
 
 ;; 7.22.7.2 The mbtowc function
@@ -2558,7 +2567,7 @@ current global locale and returns the bytevector.  It returns #f on a
 conversion error."
   (false-if-exception
    (string->bytevector wcs (locale-encoding %global-locale) 'error)))
-    
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; <stdnoreturn.h>
@@ -2642,7 +2651,7 @@ Note that if SRC is not a writable string, such as created with
 	   (else
 	    (loop (1+ i))))))))))
 
-;; 7.24.4.2 The strcmp function 
+;; 7.24.4.2 The strcmp function
 (define (strcmp a b)
   "Compares two strings lexicographically, returning -1, 0, or 1,
 if A is less than, equal, or greater than B."
@@ -2694,7 +2703,7 @@ in the bytevector BV.  If C doesn't occur in the first N bytes of BV,
 	      i
 	      ;; else
 	      (loop (1+ i)))))))
-	      
+
 ;; 7.24.5.2 The strchr function
 ;; STRCHR doesn't really translate because it returns a pointer to the
 ;; first character, but, a good approimation is
@@ -2740,7 +2749,7 @@ that consists only of the characters that are found in SRC."
     (string-index dest (lambda (c)
 			 (not (char-set-contains? charset c))))))
 
-;; 7.24.5.7 The strstr function 
+;; 7.24.5.7 The strstr function
 ;; STRSTR doesn't translate because it returns a pointer. It scans
 ;; DEST for an occurrence of the string SRC, returning a pointer
 ;; to the location of the beginning of the occurrence.  Consider
@@ -2766,7 +2775,7 @@ DEST, or #f if the string STR can not be found in DEST."
 	    ((>= i end))
 	  (bytevector-u8-set! dest i ch)))))
 
-;; 7.24.6.2 The strerror function 
+;; 7.24.6.2 The strerror function
 ;; STRERROR returns a text version of errno.  It exists in core Guile.
 
 ;; 7.24.6.3 The strlen function
@@ -2852,7 +2861,7 @@ up toward zero."
 
 ;; A proper implementation may avoid rounding error.
 (define (fma x y z)
-  
+
   (+ (* x y) z))
 
 
@@ -3037,7 +3046,7 @@ WCTYPE procedure."
 the following categories.  STR should be one of the following strings:
 'alnum', 'alpha', 'blank', 'cntrl', 'digit', 'graph', 'lower', 'print',
 'space', 'upper', 'xdigit'."
-  (cond 
+  (cond
     ((string=? str "alnum") 1)
     ((string=? str "alpha") 2)
     ((string=? str "blank") 3)
