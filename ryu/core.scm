@@ -231,6 +231,10 @@
 	    ;; 7.12.11.1 The copysign functions
 	    copysign
 
+	    ;; 7.12.14.5 The islessgreater macro
+	    cislessgreater
+	    islessgreater
+
 	    ;; 7.18 Boolean type and values
 	    ctrue
 	    cfalse
@@ -1906,6 +1910,81 @@ complex."
 	 -1
 	 1)))
 
+;; 7.12.14.5 The islessgreater macro
+;; This is a type of not equals function for floating point
+;; numbers
+(define (cislessgreater x y)
+  "Return 1 if the inexact numbers X and Y are not equal
+within floating point precision.  Otherwise return 0."
+  (let ((x2 (if (exact? x)
+		(exact->inexact x)
+		x))
+	(y2 (if (exact? y)
+		(exact->inexact y)
+		y)))
+    (cond
+     ((< (abs x2) (abs y2))
+      1)
+     ((> (abs x2) (abs y2))
+      1)
+     (else 0))))
+
+(define (islessgreater x y)
+  "Return #t if the inexact numbers X and Y are not equal within
+floating point precision. Otherwise return #f."
+  (let ((x2 (if (exact? x)
+		(exact->inexact x)
+		x))
+	(y2 (if (exact? y)
+		(exact->inexact y)
+		y)))
+    (cond
+     ((< (abs x2) (abs y2))
+      #t)
+     ((> (abs x2) (abs y2))
+      #t)
+     (else #f))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.13 Nonlocal jumps
+;;
+;; jmp_buf and setjmp are rather like
+;; call-with-prompt and abort-to-prompt
+
+;; 7.13.1.1 The setjmp macro
+;; 7.13.2.1 The longjmp function
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.14 Signal handling
+
+;; 7.14.1.1 The signal function
+(define (signal sig func)
+  "Install FUNC as a signal handler for SIG.
+FUNC may be SIG_DFL or SIG_IGN. Returns the previous signal
+handler."
+  (let ((prev (car (sigaction sig))))
+    (sigaction sig func)
+    prev))
+
+;; 7.14.2.1 The raise function
+;; The C version of raise returns 0 on success or nonzero on error.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.15 Alignment <stdalign.h>
+;;
+;; The alignas macro
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.16 Variable arguments <stdarg.h>
+;;
+;; Lots of ways to work around this in Scheme
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 7.17 Atomics <stdatomic.h>
+;;
+;; Use atomic-box functions from (ice-9 atomic)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 7.18 Boolean type and values
 (define ctrue 1)
 
