@@ -6,6 +6,7 @@
   #:use-module (ice-9 rdelim)
   #:use-module (rnrs bytevectors)
   #:use-module (system foreign)
+  #:use-module (ryu printf)
   #:export (;; 5.1.2.2.1 Program startup
 	    argc
 	    argv
@@ -230,6 +231,9 @@
 
 	    ;; 7.12.11.1 The copysign functions
 	    copysign
+
+	    ;; 7.12.11.2 The nan functions
+	    cnan
 
 	    ;; 7.12.14.5 The islessgreater macro
 	    cislessgreater
@@ -1910,6 +1914,18 @@ complex."
 	 -1
 	 1)))
 
+;; 7.12.11.2 The nan functions
+;; In C, nan returns a double-valued NaN.
+;; nanf returns a float-valued NaN.
+;; nanl returns a long-double-valued NaN.
+;; Guile only has +nan.0, and has a procedure (nan)
+;; that generates one.
+(define (cnan tag)
+  "Returns a not-a-number of type TAG.  But, Guile +nan.0
+values don't have a tag, so it just returns +nan.0,
+and the string TAG is ignore."
+  (nan))
+
 ;; 7.12.14.5 The islessgreater macro
 ;; This is a type of not equals function for floating point
 ;; numbers
@@ -2083,10 +2099,52 @@ be known by the name NEW."
 
 ;; There is one in core Guile.
 
-;; 7.21.6.1 The fprintf functions
-
-
 ;; 7.21.6 Formatted input/output
+
+;; 7.21.6.1 The fprintf functions
+;; Defined in (ryu printf)
+
+;; 7.21.6.2 The fscanf function
+
+;; 7.21.6.3 The printf function
+;; Defined in (ryu printf)
+
+;; 7.21.6.4 The scanf function
+
+;; 7.21.6.5 The snprintf function
+
+;; Sets the string S to the first N character of the formatted
+;; output created by the format string and its arguments. Returns the
+;; length of the formatted output. N may be zero, in which case the
+;; string S is not modified."
+
+(define-syntax snprintf
+  (syntax-rules ()
+    ((_ s n format . args)
+     (let ((out (apply asprintf (append (list format) args))))
+       (let ((outlen (string-length out)))
+	 (cond
+	  ;; If N is zero, just return the length of the formatted string.
+	  ((zero? n)
+	   outlen)
+	  (else
+	   (set! s (substring out 0 (min (string-length out) n)))
+	   outlen)))))))
+
+;; 7.21.6.6 The sprintf function
+
+;; Sets the string S to the formatted output created by the format
+;; string and its arguments. Returns the length of the formatted
+;; output.
+
+(define-syntax sprintf
+  (syntax-rules ()
+    ((_ s format . args)
+     (let ((out (apply asprintf (append (list format) args))))
+       (let ((outlen (string-length out)))
+	 (set! s out)
+	 outlen)))))
+
 #!
 (define FLAG_GROUP 1)
 (define FLAG_LEFT 2)
