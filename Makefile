@@ -16,7 +16,6 @@ SCM_SRC = \
  mlg/utils.scm
 
 BROKEN_SCM_SRC = \
- mlg/ed.scm \
  mlg/io.scm \
  mlg/regex.scm \
  mlg/spreadsheet.scm
@@ -67,6 +66,7 @@ libguile-mlg.so: $(C_OBJ)
 	unset GUILE_LOAD_COMPILED_PATH ; \
 	GUILE_WARN_DEPRECATED=detailed \
 	LC_ALL=C \
+	LD_LIBRARY_PATH=. \
 	guild compile $(SCM_LDFLAGS) $(SCM_CFLAGS) -o "$@" "$<"
 
 clean:

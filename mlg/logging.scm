@@ -17,6 +17,7 @@
 ;;; <http://www.gnu.org/licenses/>
 (define-module (mlg logging)
   #:use-module (ice-9 format)
+  #:use-module (ice-9 threads)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (system repl repl)

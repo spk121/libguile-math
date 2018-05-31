@@ -2,6 +2,7 @@
   #:use-module (ice-9 i18n)
   #:use-module (ice-9 iconv)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-19)
   #:use-module (rnrs bytevectors)
   #:export (clean
 	    trim))
@@ -19,6 +20,37 @@
 
 (define-class <xl-error>
   (type #:init-value #f #:getter get-type #:setter set-type! #init-keyword #:type))
+
+(define (xl:abs x)
+  "Given X, return its absolute value if it is a real number.  Return
+#VALUE! if it is not a real number.  If X is list-like, operate only
+on the first element of the list."
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DATE AND TIME FUNCTIONS
+
+(define *date-1900* (make-date 0 0 0 12 1 1 1900 0))
+
+
+(define (date year month day)
+  "Combines a year, month, and day into a serial number that
+represents a date. 01/01/1900 is 1.  YEAR should be a 4-digit year
+between 1900 and 9999. (If YEAR is less than 1900, then 1900 will be
+added to it.)  MONTH is 1 to 12 indicating a month of the given year.
+DAY is 1 to 31 indicating a day of the current month.  If either
+MONTH or DAY are too large or too small, they will flow over into following
+or previous months without throwing an error."
+  (let ((YEAR (cond
+	       ((< year 1900)
+		(+ 1900 year))
+	       (else year))))
+    (
+  (+ (date->julian-day (make-date 0 0 0 12 day month year 0))
+     (- *date-1900*)
+     1))
 
 (define-method ())
 (define char-set:clean
@@ -63,7 +95,7 @@ in the string with a single space."
     (string-trim-both str2 (lambda (c)
 			     (char-set-contains? char-set:whitespace c))
 		      0 pos)))
-  
+
 (define (lower str)
   "Return a new string, converting all characters into lower case."
   (string-locale-downcase str))
@@ -175,8 +207,6 @@ contain numbers, return 0."
     ;; FIXME: need a whole library support to deal with dates
     0)))
 
-;; ABS exists
-
 (define (sign num)
   "Returns the sign of NUM, either +1, -1, or 0"
   (if (real? num)
@@ -241,5 +271,3 @@ Note that the sign of SIGNIFICANCE is ignored."
 (define (int num)
   "Round down to the nearest integer."
   (inexact->exact (floor num)))
-
-

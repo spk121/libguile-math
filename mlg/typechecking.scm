@@ -22,6 +22,7 @@
             list-length-1?
             list-length-2?
             list-length-9?
+            list-length-10?
             list-of-integers-length-1+?
             list-of-integers-length-1?
             list-of-integers-length-2?
@@ -48,6 +49,11 @@
   "Return #t if x is a list with nine entries."
   (and (list? x)
        (= 9 (length x))))
+
+(define (list-length-10? x)
+  "Return #t if x is a list with ten entries."
+  (and (list? x)
+       (= 10 (length x))))
 
 (define (list-of-integers-length-1+? x)
   "Return #t if x is a list of one or more integers."

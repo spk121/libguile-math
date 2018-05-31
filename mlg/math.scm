@@ -47,6 +47,11 @@
             quadratic-roots
             real->integer
 
+            ;; 8.3.2 Numerical Differentiation
+            deriv2
+            deriv2F
+            deriv3
+
             math-load-extension
             ))
 
@@ -291,7 +296,7 @@ x, where x is [-1, 1]."
     (* 1/2 (+ (* 5 x x x) (* -3 x))))
    ((= n 4)
     (* 1/8 (+ (* 35 (expt x 4)) (* -30 x x) 3)))
-   (else 
+   (else
     (let ((A (/ 1 (expt 2 n)))
           (range (floor (/ n 2))))
       (* A
@@ -489,7 +494,7 @@ direction sine and cosine."
                    (sign sb)))
           (scale (+ asa asb)))
       (if (zero? scale)
-          ;; (R Z C S) 
+          ;; (R Z C S)
           '(0.0 0.0 1.0 0.0)
           ;; else
           (let* ((r (* sgn scale (pythag (/ sa scale) (/ sb scale))))
@@ -516,6 +521,33 @@ direction sine and cosine."
                       (- (sqrt (- (* b b) (* 4 a c))))))
              (q (* -0.5 (+ b det))))
         (list (/ q a) (/ c q)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 8.3.2 Numerical Differentiation
+;; CRC Math 30th Ed, p 705
+
+(define (derivative-estimate-forward-two-point-formula func x0 h)
+  "Finds an estimate of the derivative of func at x0, using
+h as a step size."
+  (* (/ 1 h)
+     (- (func (- x0 h))
+        (func x0))))
+
+(define deriv2F derivative-estimate-forward-two-point-formula)
+
+(define (derivative-estimate-forward-three-point-formula func x0 h)
+  (* (/ 1 (* 2 h))
+     (+ (* -3 (func x0))
+        (* 4 (func (+ x0 h)))
+        (func (+ x0 h h)))))
+
+(define deriv3F derivative-estimate-forward-three-point-formula)
+
+(define (derivative-estimate-two-point-formula func x0 h)
+  (* (/ 1 (* 2 h))
+     (- (func (+ x0 h)) (func (- x0 h)))))
+
+(define deriv2 derivative-estimate-two-point-formula)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; For C-defined functions

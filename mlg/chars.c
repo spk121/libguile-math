@@ -4,6 +4,7 @@
 //
 // My modifications to this code are released to the public domain.
 
+#define _XOPEN_SOURCE
 #include <libguile.h>
 #include <wchar.h>
 
