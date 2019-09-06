@@ -16,7 +16,7 @@ Copyright @copyright{} 2017 Mike Gran
 @contents
 
 @ifnottex
-@node Top, C procedures, (dir), (dir)
+@node Top, The MLG utilities library, (dir), (dir)
 
 @top Ryulib
 
@@ -24,16 +24,58 @@ This manual is for Ryulib.
 @end ifnottex
 
 @menu
+* The MLG utilities library::
+* mlg utils::
 * C procedures::
 * Index::                       Complete index.
 
+
 @end menu
 
-@node C procedures, Index, Top, Top
-@chapter C procedures
+@node The MLG utilities library, mlg utils, Top, Top
+@chapter The MLG utilities library
 
-These are procedures provided in C that are more terse or more
-convenient that their Guile forms.
+Every programmer has a list of library routines that they use often.
+These are mine.  The @code{(mlg)} library is routines that seem somewhat
+basic but are not in the standard library.
+
+@node mlg utils, C procedures, The MLG utilities library, Top
+@chapter mlg utils
+
+The bulk of this module is procedures that search for special directory
+locations, plus a couple of other random bits.
+
+@deffn Procedure search-path-separator-string
+This returns ``;'' on Windows or ``:'' otherwise.  This string is the
+conventionally used separator in lists of paths, such as
+@example
+/usr/local/share:/usr/share
+@end example
+@end deffn
+
+@deffn Procedure get-system-data-dirs
+Returns the preference-ordered set of base directores to search for
+data files.  This does not include the user's data directory.  The
+return is a list of strings of directory names.
+@end deffn
+
+@deffn Procecure find-data-file filename
+Searches for a file named @var{filename} in the user's data directory
+and the system data directories.  @var{filename} may be a relative path
+like @code{path/fname}. The directories are searched in preference
+order: the user's data directory is searched, then the system data
+directories.  The first matching filepath is returned as a string.  If
+no matching file is found, @code{#f} is returns.
+
+This procedure does not recursively search subdirectories.
+@end deffn
+
+@node C procedures, Index, mlg utils, Top
+@chapter The Ryu C-like procedures library
+
+This is a library of procedure that are intentionally similar to C
+procedures.  This library is partly a dumb joke and partly a useful
+utility to make porting from C easier.
 
 @defun Macro assert condition
 Given @var{condition}, if @var{condition} evaluates to @code{#f},
@@ -59,7 +101,6 @@ This is the first item.
 @item
 This is the second item.
 @end enumerate
-
 
 @node Index,  , C procedures, Top
 @unnumbered Index

@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg utils) - more helper functions
-;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2019 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -22,6 +22,10 @@
   #:export (get-prgname
             get-user-name
 
+            ;; Path utils
+            search-path-separator-string
+            get-system-data-dirs
+
             ;; File utils
             build-filename
             get-home-dir
@@ -32,9 +36,20 @@
             get-user-runtime-dir
             get-user-special-dir
 
+            ;; Searches
+            find-data-file
+
             ;; From binary
             utils-extensions
             getpagesize))
+
+(define (search-path-separator-string)
+  (let ((osname (utsname:sysname (uname))))
+    (cond
+     ((string=? osname "Windows")
+      ";")
+     (else
+      ":"))))
 
 (define (strip-end-separator str separator)
   "Return a substring of STR that does not include
@@ -88,7 +103,6 @@ string, it is ignored."
    ((= 1 (length elements))
     (strip-end-separator (first elements) file-name-separator-string))
    (else
-
     (fold
      (lambda (suffix prefix)
        ;; Append the string so far with a slash and the next element.
@@ -133,6 +147,16 @@ in FILENAME"
       ;; else, hail mary.
       (string-copy (or (getenv "USERPROFILE")
                        "C:\\Windows"))))
+
+
+(define (get-system-data-dirs)
+  "Returns a list of directories that are the default
+data directories."
+  (let ((data-dirs-env (getenv "XDG_DATA_DIRS")))
+    (unless (and data-dirs-env (not (string-null? data-dirs-env)))
+      (set! data-dirs-env "/usr/local/share/:/usr/share/"))
+    (string-split data-dirs-env
+                  (string-ref (search-path-separator-string) 0))))
 
 (define (get-user-database-dir)
   (passwd:dir (getpwuid (getuid))))
@@ -271,6 +295,29 @@ user directory."
                        (else
                         ;; This entry is malformed, so keep looking
                         (loop (read-line config-port))))))))))))))
+
+(define (find-data-file filename)
+  "Search for FILENAME in the standard data file directories for this user,
+using the preferred order for data directories.  Returns the first
+matching file discovered, or #f if there is no file by that name in
+any of this user's data directories."
+  (let ((data-dirs (cons
+                    (get-user-data-dir)
+                    (get-system-data-dirs))))
+    (if (null? data-dirs)
+        ;; This is impossible: there is always at least one data dir.
+        #f
+        ;; Else, search for a candidate matching filename.
+        (let loop ((cur-dir (car data-dirs))
+                   (rest (cdr data-dirs)))
+          (let ((fname (build-filename cur-dir filename)))
+            (cond
+             ((file-exists? fname)
+              fname)
+             ((null? rest)
+              #f)
+             (else
+              (loop (car rest) (cdr rest)))))))))
 
 (define (utils-extensions)
   (load-extension "libguile-mlg" "init_utils_lib"))
