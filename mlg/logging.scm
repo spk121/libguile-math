@@ -34,36 +34,37 @@
   #:use-module (mlg time)
   #:use-module (mlg utils)
   #:export(
-	   __FILE__
-	   __LINE__
-	   __FUNC__
-	   __LOCALS__
+           __FILE__
+           __LINE__
+           __FUNC__
+           __LOCALS__
 
-	   set-log-domain
-	   get-log-domain
-	   log-set-default-writer
-	   log-enable-color
-	   
-	   log-structured
-	   log-structured-alist
+           set-log-domain
+           get-log-domain
+           log-set-default-writer
+           log-enable-color
 
-	   log-error
-	   log-error-full
-	   log-critical
-	   log-warning
-	   log-message
-	   log-info
-	   log-debug
-	   
-	   warn-if-false
-	   warn-val-if-false
-	   warn-if-used
-	   warn-if-reached
+           log-structured
+           log-structured-alist
 
-	   log-debug-locals
-	   log-debug-pk
-	   log-debug-time
-	   ))
+           log-error
+           log-error-full
+           log-critical
+           log-warning
+           log-message
+           log-info
+           log-debug
+
+           warn-if-false
+           warn-val-if-false
+           warn-if-used
+           warn-if-reached
+
+           log-debug-locals
+           log-debug-backtrace
+           log-debug-pk
+           log-debug-time
+           ))
 
 (cond-expand (guile-2.2
               )
@@ -75,81 +76,85 @@
   (syntax-rules ()
     ((_)
      (if (assv-ref (current-source-location) 'filename)
-	 (basename (assv-ref (current-source-location) 'filename))
-	 ;; else
-	 "(unknown file)"))))
+         (basename (assv-ref (current-source-location) 'filename))
+         ;; else
+         "(unknown file)"))))
 
 (define-syntax __LINE__
   (syntax-rules ()
     ((_)
      (or (assv-ref (current-source-location) 'line)
-	 -1))))
+         -1))))
 
 (define-syntax __FUNC__
   (syntax-rules ()
     ((_)
      (let ((stk (stack->vector (make-stack #t))))
        (let loop ((i 1))
-	 (cond
-	  ((and (vector-ref stk i)
-		(frame-procedure-name (vector-ref stk i)))
-	   (let ((pname (frame-procedure-name (vector-ref stk i))))
-	     (cond
-	      ((eqv? pname '%start-stack)
-	       "(top level)")
-	      ((eqv? pname 'save-module-excursion)
-	       "(top level)")
-	      (else
-	       (symbol->string pname)))))
-	  ((< i (vector-length stk))
-	   (loop (1+ i)))
-	  (else
-	   "(unknown func)")))))))
+         (cond
+          ((and (vector-ref stk i)
+                (frame-procedure-name (vector-ref stk i)))
+           (let ((pname (frame-procedure-name (vector-ref stk i))))
+             (cond
+              ((eqv? pname '%start-stack)
+               "(top level)")
+              ((eqv? pname 'save-module-excursion)
+               "(top level)")
+              (else
+               (symbol->string pname)))))
+          ((< i (vector-length stk))
+           (loop (1+ i)))
+          (else
+           "(unknown func)")))))))
 
 (define-syntax STRLOC
   (syntax-rules ()
     ((_)
      (let ((loc (assv-ref (current-source-location) 'line)))
        (if loc
-	   (number->string loc)
-	   "(unknown line)")))))
-#|
-(define* (stringify-local-vars frame #:key (width 158) (per-line-prefix "  "))
-  (let ((bindings (frame-bindings frame)))
-    (cond
-     ((null? bindings)
-      (format #f "~aNo local variables.~%" per-line-prefix))
-     (else
-      (apply string-append 
-	     (map
-	      (lambda (binding)
-		(format #f "~a~a = ~v:@y~%"
-			per-line-prefix
-			(binding-name binding)
-			width
-			(binding-ref binding)))
-	      (frame-bindings frame)))))))
-|#
+           (number->string loc)
+           "(unknown line)")))))
 
 (define-syntax __LOCALS__
   (syntax-rules ()
     ((_)
      (let ((stk (stack->vector (make-stack #t)))
-	   (out "...\n"))
+           (out "...\n"))
        (let loop ((i 1))
-	 (let* ((frame (vector-ref stk i))
-		(name (frame-procedure-name frame)))
-	   (set! out
-	     (string-append out
-			    (with-output-to-string
-			      (lambda ()
-				(print-locals frame
-					      #:width 160
-					      #:per-line-prefix "**   ")))))
-	   (if (and (not name) (< i (vector-length stk)))
-	       (loop (1+ i))
-	       ;; else
-	       out)))))))
+         (let* ((frame (vector-ref stk i))
+                (name (frame-procedure-name frame)))
+           (set! out
+             (string-append out
+                            (with-output-to-string
+                              (lambda ()
+                                (print-locals frame
+                                              #:width 160
+                                              #:per-line-prefix "**   ")))))
+           (if (and (not name) (< i (vector-length stk)))
+               (loop (1+ i))
+               ;; else
+               out)))))))
+#|
+(define-syntax (__BACKTRACE__)
+(syntax-rules ()
+((_)
+(let ((stk (stack->vector (make-stack #t)))
+(out "...\n"))
+(let loop ((i 1))
+(let* ((frame (vector-ref stk i))
+(name (frame-procedure-name frame)))
+(set! out
+(string-append out
+(with-output-to-string
+(lambda ()
+(print-locals frame
+#:width 160
+#:per-line-prefix "**   ")))))
+(if (and (not name) (< i (vector-length stk)))
+(loop (1+ i))
+;; else
+out)))))))
+|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; From glib-init.c
@@ -175,22 +180,22 @@
 (define LOG_LEVEL_DEBUG    (ash 1 7))
 ;; Mask for all log levels but no internal flags
 (define LOG_LEVEL_MASK     (lognot-uint16 (logior LOG_FLAG_RECURSION
-						  LOG_FLAG_FATAL)))
+                                                  LOG_FLAG_FATAL)))
 
 ;; Mask for log levels that are considered fatal by default
 (define LOG_FATAL_MASK    (logior LOG_FLAG_RECURSION LOG_LEVEL_ERROR))
 
 ;; 1139: ALERT_LEVELS
 (define ALERT_LEVELS      (logior LOG_LEVEL_ERROR
-				  LOG_LEVEL_CRITICAL
-				  LOG_LEVEL_WARNING))
+                                  LOG_LEVEL_CRITICAL
+                                  LOG_LEVEL_WARNING))
 
 ;; 1142: DEFAULT_LEVELS
 ;; These are emitted by the default log handler.
 (define DEFAULT_LEVELS    (logior LOG_LEVEL_ERROR
-				  LOG_LEVEL_CRITICAL
-				  LOG_LEVEL_WARNING
-				  LOG_LEVEL_MESSAGE))
+                                  LOG_LEVEL_CRITICAL
+                                  LOG_LEVEL_WARNING
+                                  LOG_LEVEL_MESSAGE))
 (define LOG_DOMAIN #f)
 
 (define (set-log-domain str)
@@ -206,80 +211,80 @@
   (syntax-rules ()
     ((_ ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_DEBUG
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" (string->format-escaped-string (__LOCALS__))))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" (string->format-escaped-string (__LOCALS__))))))
 
 (define-syntax log-debug-time
   (syntax-rules ()
     ((_ ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_DEBUG
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" "Time is ~6,5f"
-		     (* 1e-6 (- (monotonic-time) *log-start-time*))))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" "Time is ~6,5f"
+                     (* 1e-6 (- (monotonic-time) *log-start-time*))))))
 
 ;; gmessages.h: 285: g_error
 (define-syntax log-error
   (syntax-rules ()
     ((_ msg ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_ERROR
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" msg ...))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" msg ...))))
 
 ;; gmessage.h: 293: g_message
 (define-syntax log-message
   (syntax-rules ()
     ((_ msg ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_MESSAGE
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" msg ...))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" msg ...))))
 
 ;; gmessage.h: 298: g_critical
 (define-syntax log-critical
   (syntax-rules ()
     ((_ msg ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" msg ...))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" msg ...))))
 
 ;; gmessage.h: 303: g_warning
 (define-syntax log-warning
   (syntax-rules ()
     ((_ msg ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_WARNING
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" msg ...))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" msg ...))))
 
 ;; gmessage.h: 308: g_info
 (define-syntax log-info
   (syntax-rules ()
     ((_ msg ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_INFO
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" msg ...))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" msg ...))))
 
 ;; gmessage.h: 313: g_debug
 (define-syntax log-debug
   (syntax-rules ()
     ((_ msg ...)
      (log-structured LOG_DOMAIN LOG_LEVEL_DEBUG
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" msg ...))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" msg ...))))
 
 ;; gmessage.h: 491: g_warn_if_reached
 
@@ -287,21 +292,21 @@
   (syntax-rules ()
     ((_)
      (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
-		     "CODE_FILE" (__FILE__)
-		     "CODE_LINE" (STRLOC)
-		     "CODE_FUNC" (__FUNC__)
-		     "MESSAGE" "code should not be reached"))))
+                     "CODE_FILE" (__FILE__)
+                     "CODE_LINE" (STRLOC)
+                     "CODE_FUNC" (__FUNC__)
+                     "MESSAGE" "code should not be reached"))))
 
 (define-syntax warn-if-used
   (syntax-rules ()
     ((_ val)
      (begin
        (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
-		       "CODE_FILE" (__FILE__)
-		       "CODE_LINE" (STRLOC)
-		       "CODE_FUNC" (__FUNC__)
-		       "MESSAGE" "value '~a' should not be used"
-		       val)
+                       "CODE_FILE" (__FILE__)
+                       "CODE_LINE" (STRLOC)
+                       "CODE_FUNC" (__FUNC__)
+                       "MESSAGE" "value '~a' should not be used"
+                       val)
        val))))
 
 (define-syntax warn-if-false
@@ -309,28 +314,28 @@
     ((_ expr)
      (let ((ret expr))
        (or ret
-	   (begin
-	     (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
-			     "CODE_FILE" (__FILE__)
-			     "CODE_LINE" (STRLOC)
-			     "CODE_FUNC" (__FUNC__)
-			     "MESSAGE" "'~a' is false"
-			     (quote expr))
-	     #f))))))
+           (begin
+             (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
+                             "CODE_FILE" (__FILE__)
+                             "CODE_LINE" (STRLOC)
+                             "CODE_FUNC" (__FUNC__)
+                             "MESSAGE" "'~a' is false"
+                             (quote expr))
+             #f))))))
 
 (define-syntax warn-val-if-false
   (syntax-rules ()
     ((_ expr val)
      (let ((ret expr))
        (or ret
-	   (begin
-	     (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
-			     "CODE_FILE" (__FILE__)
-			     "CODE_LINE" (STRLOC)
-			     "CODE_FUNC" (__FUNC__)
-			     "MESSAGE" "'~a' is false. '~a'='~a'"
-			     (quote expr) (quote val) val)
-	     #f))))))
+           (begin
+             (log-structured LOG_DOMAIN LOG_LEVEL_CRITICAL
+                             "CODE_FILE" (__FILE__)
+                             "CODE_LINE" (STRLOC)
+                             "CODE_FUNC" (__FUNC__)
+                             "MESSAGE" "'~a' is false. '~a'='~a'"
+                             (quote expr) (quote val) val)
+             #f))))))
 
 
 ;; gmessages.h: 576: g_return_if_fail
@@ -346,11 +351,11 @@
     ((_ expr)
      (let ((ret expr))
        (log-structured LOG_DOMAIN LOG_LEVEL_DEBUG
-		       "CODE_FILE" (__FILE__)
-		       "CODE_LINE" (STRLOC)
-		       "CODE_FUNC" (__FUNC__)
-		       "MESSAGE" "'~s' is '~s'"
-		       (quote expr) ret)
+                       "CODE_FILE" (__FILE__)
+                       "CODE_LINE" (STRLOC)
+                       "CODE_FUNC" (__FUNC__)
+                       "MESSAGE" "'~s' is '~s'"
+                       (quote expr) ret)
        ret))))
 
 
@@ -373,7 +378,7 @@
   (format #t "fatal log func: ~a~%" *fatal-log-func*)
   (format #t "log writer func: ~a~%" *log-writer-func*)
   (for-each (lambda (domain) (%dump-log-domain domain))
-	    *log-domains*))
+            *log-domains*))
 
 ;; 523: aka _g_log_abort
 (define (%log-abort breakpoint?)
@@ -395,7 +400,7 @@ that takes two parameters: a log-level integer, and an alist of key/value
 pairs.
 
 As a special case, if WRITER_FUNC is the symbol 'standard, the default
-standard streams writer will be used.  If WRITER_FUNC is 'journal, 
+standard streams writer will be used.  If WRITER_FUNC is 'journal,
 the systemd journal writer will be used."
   (lock-mutex *messages-lock*)
   (cond
@@ -435,8 +440,8 @@ when logging to the standard streams."
      "DEBUG")
     (else
      (if (not (zero? log-level))
-	 (format #f "LOG-~a" (logand log-level LOG_LEVEL_MASK))
-	 "LOG")))
+         (format #f "LOG-~a" (logand log-level LOG_LEVEL_MASK))
+         "LOG")))
    (color-reset use-color?)
    (if (logtest log-level LOG_FLAG_RECURSION)
        " (recursed)"
@@ -448,10 +453,10 @@ when logging to the standard streams."
 ;; 1150: extracted fro mmklevel_prefix
 (define (log-level->port log-level)
   (if (logtest log-level
-	       (logior LOG_LEVEL_ERROR
-		       LOG_LEVEL_WARNING
-		       LOG_LEVEL_CRITICAL
-		       LOG_LEVEL_MESSAGE))
+               (logior LOG_LEVEL_ERROR
+                       LOG_LEVEL_WARNING
+                       LOG_LEVEL_CRITICAL
+                       LOG_LEVEL_MESSAGE))
       (current-error-port)
       (current-output-port)))
 
@@ -495,34 +500,34 @@ when logging to the standard streams."
 ;; 1665: g_log_structured
 (define (%add-fields-from-list-to-alist _output rest)
   (let loop ((key #f)
-	     (cur (car rest))
-	     (rest (cdr rest))
-	     (output _output))
+             (cur (car rest))
+             (rest (cdr rest))
+             (output _output))
     (cond
      ((not key)
       (if (null? rest)
-	  (begin
-	    ;; We have a leftover key with no value.
-	    output)
-	  ;; Else, this element must be a key.
-	  (loop cur (car rest) (cdr rest) output)))
+          (begin
+            ;; We have a leftover key with no value.
+            output)
+          ;; Else, this element must be a key.
+          (loop cur (car rest) (cdr rest) output)))
      ((not (string=? key "MESSAGE"))
       (if (null? rest)
-	  (begin
-	    ;; We have a key with no value.
-	    output)
-	  ;; Else, this element must be the value of a key/value pair.
-	  (begin
-	    (set! output (assoc-set! output key cur))
-	    (loop #f (car rest) (cdr rest) output))))
+          (begin
+            ;; We have a key with no value.
+            output)
+          ;; Else, this element must be the value of a key/value pair.
+          (begin
+            (set! output (assoc-set! output key cur))
+            (loop #f (car rest) (cdr rest) output))))
      (else
       ;; We have a "MESSAGE" key, so the remaining params are a format
       ;; specifier and its parameters.
       ;;(pk 'key key 'cur cur 'rest rest)
       (set! output (assoc-set! output key
-			       (apply format (append (list #f)
-						     (list cur)
-						     rest))))
+                               (apply format (append (list #f)
+                                                     (list cur)
+                                                     rest))))
       output))))
 
 (define (log-structured log-domain log-level . rest)
@@ -537,83 +542,73 @@ string and a value string.
 There must always be a MESSAGE key, which must be the last entry in
 the list.  For that key, the variables that follow the MESSAGE key
 will be merged into a single string using (format #f param1 param2 ...)"
-  ;;(pk 'log-structured 'log-domain log-domain 'log-level log-level 'rest rest)
   (let ((fields-alist (acons "PRIORITY" (log-level->priority log-level) '())))
-    ;;(pk 'fields-alist1 fields-alist)
     (when log-domain
       (set! fields-alist (acons "DOMAIN" log-domain fields-alist)))
-    ;;(pk 'fields-alist2 fields-alist)
     (set! fields-alist (%add-fields-from-list-to-alist fields-alist rest))
-    ;;(pk 'fields-alist3 fields-alist)
     (log-structured-alist log-level fields-alist)))
 
-;; 1906: g_log_structured_array
 (define (log-structured-alist log-level fields-alist)
-  ;;(pk 'log-structured-alist 'log-level log-level 'fields-alist fields-alist)
   (unless (null? fields-alist)
     (let* ((depth (fluid-ref *log-structured-depth*))
-	   (recursion (> depth 0))
-	   (writer-func #f))
+           (recursion (> depth 0))
+           (writer-func #f))
       (lock-mutex *messages-lock*)
       (set! writer-func (if recursion
-			    %log-writer-fallback
-			    *log-writer-func*))
-      ;;(pk 'writer-func writer-func)
+                            %log-writer-fallback
+                            *log-writer-func*))
       (unlock-mutex *messages-lock*)
 
       (fluid-set! *log-structured-depth* (1+ depth))
       (when (procedure? writer-func)
-	(writer-func log-level fields-alist))
+        (writer-func log-level fields-alist))
       (fluid-set! *log-structured-depth* depth)
 
       (when (logtest log-level LOG_FATAL_MASK)
-	(%log-abort (not (logand log-level LOG_FLAG_RECURSION)))))))
-
-;; 2102: g_log_writer_is_journald
-(define (log-writer-is-journald? fileno)
-  #f)
+        (%log-abort (not (logand log-level LOG_FLAG_RECURSION)))))))
 
 ;; 2168: g_log_writer_format_fields
 (define (log-writer-format-fields log-level fields-alist use-color?)
   ;; Extract some common fields.
   (let ((message (assoc-ref fields-alist "MESSAGE"))
-	(log-domain (assoc-ref fields-alist "DOMAIN"))
-	(level-prefix (mklevel-prefix log-level use-color?))
-	(gstring ""))
+        (log-domain (assoc-ref fields-alist "DOMAIN"))
+        (level-prefix (mklevel-prefix log-level use-color?))
+        (gstring ""))
     (when (logtest log-level ALERT_LEVELS)
       (set! gstring (string-append gstring "\n")))
     (when (not log-domain)
       (set! gstring (string-append gstring "** ")))
 
-    (when (eqv? (zero? (logand *log-msg-prefix* (logand log-level LOG_LEVEL_MASK)))
-		(zero? (logand log-level LOG_LEVEL_MASK)))
+    (when (eqv? (zero? (logand *log-msg-prefix*
+                               (logand log-level LOG_LEVEL_MASK)))
+                (zero? (logand log-level LOG_LEVEL_MASK)))
       (let ((prg-name (get-prgname))
-	    (pid (getpid)))
-	(if (string-null? prg-name)
-	    (set! gstring (string-append gstring (format #f "(process:~a): " pid)))
-	    (set! gstring (string-append gstring (format #f "(~a:~a): " prg-name pid))))))
+            (pid (getpid)))
+        (if (string-null? prg-name)
+            (set! gstring (string-append gstring (format #f "(process:~a): " pid)))
+            (set! gstring (string-append gstring (format #f "(~a:~a): " prg-name pid))))))
 
     (when log-domain
       (set! gstring (string-append gstring log-domain "-")))
     (set! gstring (string-append gstring level-prefix))
-    
+
     (set! gstring (string-append gstring ": "))
     (let ((codefile (assoc-ref fields-alist "CODE_FILE"))
-	  (codeline (assoc-ref fields-alist "CODE_LINE"))
-	  (codefunc (assoc-ref fields-alist "CODE_FUNC")))
+          (codeline (assoc-ref fields-alist "CODE_LINE"))
+          (codefunc (assoc-ref fields-alist "CODE_FUNC")))
       (when codefile
-	(set! gstring (string-append gstring codefile ":")))
+        (set! gstring (string-append gstring codefile ":")))
       (when codeline
-	(set! gstring (string-append gstring codeline ":")))
+        (set! gstring (string-append gstring codeline ":")))
       (when codefunc
-	(set! gstring (string-append gstring codefunc ":")))
+        (set! gstring (string-append gstring codefunc ":")))
       (when (or codefile codeline codefunc)
-	(set! gstring (string-append gstring " "))))
+        (set! gstring (string-append gstring " "))))
 
     (if (not message)
-	(set! gstring (string-append gstring "(NULL) message"))
-	;; else
-	(set! gstring (string-append gstring message)))
+        (set! gstring (string-append gstring "(NULL) message"))
+        ;; else
+        (set! gstring (string-append gstring message)))
     gstring))
 
 ;; 2293: g_log_default_handler
@@ -621,38 +616,25 @@ will be merged into a single string using (format #f param1 param2 ...)"
   (cond
    ((logtest log-level LOG_FLAG_RECURSION)
     (%log-fallback-handler log-domain log-level message))
-   
+
    (else
     (let ((fields-alist
-	   (append
-	    `(("OLD_LOG_API" . "1")
-	      ("MESSAGE" . ,message)
-	      ("PRIORITY" . ,(log-level->priority log-level)))
-	    (if log-domain
-		`(("DOMAIN" . ,log-domain))
-		'()))))
+           (append
+            `(("OLD_LOG_API" . "1")
+              ("MESSAGE" . ,message)
+              ("PRIORITY" . ,(log-level->priority log-level)))
+            (if log-domain
+                `(("DOMAIN" . ,log-domain))
+                '()))))
       (log-structured-alist (logand log-level (lognot-uint16 LOG_FLAG_FATAL))
-			    fields-alist)))))
-
-;; 2358: g_log_writer_journald
-(define (log-writer-journal log-level fields-alist)
-  "This would send the alist of fields to the journal using the
-sd_journal_send function.  The key is transformed to a string in the
-portable character set.  The val is transformed either into UTF-8 text
-or, if it is a bytevector, into a binary blob."
-
-  ;; FIXME: what if there is already a "PRIORITY"?
-  (let ((alist (acons "PRIORITY" (log-level->priority log-level)
-		      fields-alist)))
-    (send-alist-to-journal alist)))
+                            fields-alist)))))
 
 ;; 2473: g_log_writer_standard_streams
 (define (log-writer-standard-streams log-level fields-alist)
-  ;;(pk 'log-writer-standard-streams log-level fields-alist)
   (let ((port (log-level->port log-level)))
     (display (log-writer-format-fields log-level fields-alist
-				       (port-has-color? port))
-	     port)
+                                       (port-has-color? port))
+             port)
     (newline port)
     (force-output port)
     #t))
@@ -660,31 +642,29 @@ or, if it is a bytevector, into a binary blob."
 ;; 2542: g_log_writer_default
 (define (log-writer-default log-level fields-alist)
   (unless (null? fields-alist)
-    
+
     ;; If the log-level is not in the DEFAULT_LEVELS, it is only
     ;; logged if there is a DOMAIN key in the fields which matches a
     ;; string in the MESSAGES_DEBUG environment variable.
     (let ((domains (or (getenv "MESSAGES_DEBUG") "")))
       (when (or (logtest log-level DEFAULT_LEVELS)
-		(string-contains domains "all")
-		(false-if-exception
-		 (string-contains domains
-				  (assoc-ref fields-alist "DOMAIN"))))
-	;; We try to send to the journald first, or then fallback to the
-	;; standard streams.
-	(if (and (not (and (log-writer-is-journald? (fileno (current-error-port)))
-			   (log-writer-journal log-level fields-alist)))
-		 (not (log-writer-standard-streams log-level fields-alist)))
-	    ;; Looks like we failed to log anything normally, give up.
-	    #f
-	    ;; else
-	    (begin
-	      ;; We logged something.  Now we abort if
-	      ;; the log was a fatal error.
-	      (when (or (logtest log-level LOG_FATAL_MASK)
-			(logtest log-level *log-always-fatal*))
-		(%log-abort (not (logand (logior log-level LOG_FLAG_FATAL) LOG_FLAG_RECURSION))))
-	      #t))))))
+                (string-contains domains "all")
+                (false-if-exception
+                 (string-contains domains
+                                  (assoc-ref fields-alist "DOMAIN"))))
+        ;; We try to send to the journald first, or then fallback to the
+        ;; standard streams.
+        (if (not (log-writer-standard-streams log-level fields-alist))
+            ;; Looks like we failed to log anything normally, give up.
+            #f
+            ;; else
+            (begin
+              ;; We logged something.  Now we abort if
+              ;; the log was a fatal error.
+              (when (or (logtest log-level LOG_FATAL_MASK)
+                        (logtest log-level *log-always-fatal*))
+                (%log-abort (not (logand (logior log-level LOG_FLAG_FATAL) LOG_FLAG_RECURSION))))
+              #t))))))
 
 ;; 2619: _g_log_writer_fallback
 (define (%log-writer-fallback log-level fields-alist)
@@ -694,19 +674,19 @@ the current error or output port."
     (for-each
      (lambda (entry)
        (let ((key (car entry))
-	     (val (cdr entry)))
-	 (if (member key '("MESSAGE"
-			   "MESSAGE_ID"
-			   "PRIORITY"
-			   "CODE_FILE"
-			   "CODE_LINE"
-			   "CODE_FUNC"
-			   "ERRNO"
-			   "SYSLOG_FACILITY"
-			   "SYSLOG_IDENTIFIER"
-			   "SYSLOG_PID"
-			   "GLIB_DOMAIN"))
-	     (format port "~a=~s~%" key val))))
+             (val (cdr entry)))
+         (if (member key '("MESSAGE"
+                           "MESSAGE_ID"
+                           "PRIORITY"
+                           "CODE_FILE"
+                           "CODE_LINE"
+                           "CODE_FUNC"
+                           "ERRNO"
+                           "SYSLOG_FACILITY"
+                           "SYSLOG_IDENTIFIER"
+                           "SYSLOG_PID"
+                           "GLIB_DOMAIN"))
+             (format port "~a=~s~%" key val))))
      fields-alist)
     (format port "_PID=~s~%" (getpid))))
 
@@ -714,15 +694,15 @@ the current error or output port."
 (define (%log-fallback-handler log-domain log-level _message)
   "A very basic logging handler."
   (let ((prefix (mklevel-prefix log-level #f))
-	(message
-	 (if (or (not _message) (not (string? _message))
-		 (string-null? _message))
-	     "(NULL) message"
-	     _message))
-	(port (log-level->port log-level)))
+        (message
+         (if (or (not _message) (not (string? _message))
+                 (string-null? _message))
+             "(NULL) message"
+             _message))
+        (port (log-level->port log-level)))
     (if log-domain
-	(write-string port "\n")
-	(write-string port "\n** "))
+        (write-string port "\n")
+        (write-string port "\n** "))
     (write-string port "(process:")
     (write-string port (number->string (getpid)))
     (write-string port "):")
@@ -737,18 +717,15 @@ the current error or output port."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (logging-init)
-  ;; (set! *log-writer-func* log-writer-default)
-  (set! *log-writer-func* log-writer-journal)
+  (set! *log-writer-func* log-writer-default)
   (set! *default-log-func* log-default-handler)
 
-  ;; glib-init.c:85 g_log_msg_prefix
   (set! *log-msg-prefix* (logior
-			  LOG_LEVEL_ERROR
-			  LOG_LEVEL_WARNING
-			  LOG_LEVEL_CRITICAL
-			  LOG_LEVEL_DEBUG))
-  
-  ;; glib-init.c:86 g_log_always_fatal
+                          LOG_LEVEL_ERROR
+                          LOG_LEVEL_WARNING
+                          LOG_LEVEL_CRITICAL
+                          LOG_LEVEL_DEBUG))
+
   (set! *log-always-fatal* LOG_FATAL_MASK)
   (set! *log-start-time* (monotonic-time)))
 
