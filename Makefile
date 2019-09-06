@@ -50,10 +50,7 @@ SCM_CFLAGS += -Wmacro-use-before-definition
 endif
 SCM_LDFLAGS = -L . 
 
-all: libguile-mlg.so mlg.go.tar.Z
-
-mlg.go.tar.Z: mlg.go.tar
-	compress -f mlg.go.tar
+all: libguile-mlg.so mlg.go.tar
 
 mlg.go.tar: $(SCM_OBJ) $(SCM_SCRIPT_OBJ)
 	tar -c -H ustar -f $@ $(SCM_OBJ) $(SCM_SCRIPT_OBJ)
