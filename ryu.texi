@@ -2,7 +2,7 @@
 @settitle RyuLib
 
 @copying
-Copyright @copyright{} 2017 Mike Gran
+Copyright @copyright{} 2017, 2019 Mike Gran
 @end copying
 
 @titlepage
@@ -21,26 +21,36 @@ Copyright @copyright{} 2017 Mike Gran
 @top Ryulib
 
 This manual is for Ryulib.
-@end ifnottex
 
 @menu
 * The MLG utilities library::
+* mlg bytevectors::
 * mlg logging::
 * mlg utils::
 * C procedures::
 * Index::                       Complete index.
-
-
 @end menu
 
-@node The MLG utilities library, mlg logging, Top, Top
+@end ifnottex
+
+@node The MLG utilities library, mlg bytevectors, Top, Top
 @chapter The MLG utilities library
 
 Every programmer has a list of library routines that they use often.
 These are mine.  The @code{(mlg)} library is routines that seem somewhat
 basic but are not in the standard library.
 
-@node mlg logging, mlg utils, The MLG utilities library, Top
+@node mlg bytevectors, mlg logging, The MLG utilities library, Top
+@chapter mlg bytevectors
+Here are some helper functions for working with bytevectors.
+
+@deffn Procedure subbytevector source source-start len
+Given a bytevector @var{source}, a @var{source-start} location in the
+bytevector, and the bytes required, this returns a newly allocated
+bytevector containing that region of the source.
+@end deffn
+
+@node mlg logging, mlg utils, mlg bytevectors, Top
 @chapter mlg logging
 Every programmer in the world has written their own logging class.
 This is mine.  It is largely stolen from GLib.

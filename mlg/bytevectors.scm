@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg bytevectors) - helper functions for bytevectors
-;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2019 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -31,6 +31,7 @@
             bytevector-u8-map!
             bytevector-u8-map-to-list
             read-bytevector
+            subbytevector
             ))
 
 ;; For read-bytevector
@@ -227,3 +228,10 @@ COUNT is provided, treat it as the maximum number of bytes to read."
                   ;; Otherwise, we've reached COUNT bytes, so stop.
                   new-output)))))))
 
+(define (subbytevector source source-start len)
+  "Given a source bytevector, a start location in the bytevector,
+and the bytes required, this returns a newly allocated bytevector
+containing that region of the source."
+  (let ((target (make-bytevector len)))
+    (bytevector-copy! source source-start target 0 len)
+    target))
