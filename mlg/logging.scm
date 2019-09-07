@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg logging) - a GLib-like logger
-;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2019 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -43,12 +43,13 @@
            get-log-domain
            log-set-default-writer
            log-enable-color
+           log-enable-stream-output
+           log-enable-journal-output
 
            log-structured
            log-structured-alist
 
            log-error
-           log-error-full
            log-critical
            log-warning
            log-message
@@ -61,9 +62,9 @@
            warn-if-reached
 
            log-debug-locals
-           log-debug-backtrace
            log-debug-pk
            log-debug-time
+           %dump-log-globals
            ))
 
 (cond-expand (guile-2.2
@@ -366,19 +367,17 @@ out)))))))
 ;; 505: variables
 (define *messages-lock* (make-mutex))
 (define *log-structured-depth*  (make-fluid 0))
-(define *default-log-func* #f)
 (define *log-writer-func* #f)
 (define *log-enable-color* #t)
 (define *log-start-time* #f)
+(define *log-stream-enabled* #t)
+(define *log-journal-enabled* #t)
 
 (define (%dump-log-globals)
-  (format #t "log-depth: ~a~%" (fluid-ref *log-depth*))
   (format #t "log-structured-depth: ~a~%" (fluid-ref *log-structured-depth*))
-  (format #t "default log func: ~a~%" *default-log-func*)
-  (format #t "fatal log func: ~a~%" *fatal-log-func*)
-  (format #t "log writer func: ~a~%" *log-writer-func*)
-  (for-each (lambda (domain) (%dump-log-domain domain))
-            *log-domains*))
+  (format #t "log-writer-func: ~a~%" *log-writer-func*)
+  (format #t "log-stream-enabled: ~a~%" *log-stream-enabled*)
+  (format #t "log-journal-enabled: ~a~%" *log-journal-enabled*))
 
 ;; 523: aka _g_log_abort
 (define (%log-abort breakpoint?)
@@ -386,13 +385,6 @@ out)))))))
   (if breakpoint?
       (breakpoint 'log-abort)
       (exit 1)))
-
-;; 584: write_string
-(define (write-string port string)
-  (assert-type string string)
-  (assert-type output-port port)
-  "For now, an alias for display."
-  (display string port))
 
 (define (log-set-default-writer writer_func)
   "Set the function to be used for logging.  WRITER_FUNC is a procedure
@@ -611,24 +603,6 @@ will be merged into a single string using (format #f param1 param2 ...)"
         (set! gstring (string-append gstring message)))
     gstring))
 
-;; 2293: g_log_default_handler
-(define (log-default-handler log-domain log-level message)
-  (cond
-   ((logtest log-level LOG_FLAG_RECURSION)
-    (%log-fallback-handler log-domain log-level message))
-
-   (else
-    (let ((fields-alist
-           (append
-            `(("OLD_LOG_API" . "1")
-              ("MESSAGE" . ,message)
-              ("PRIORITY" . ,(log-level->priority log-level)))
-            (if log-domain
-                `(("DOMAIN" . ,log-domain))
-                '()))))
-      (log-structured-alist (logand log-level (lognot-uint16 LOG_FLAG_FATAL))
-                            fields-alist)))))
-
 ;; 2473: g_log_writer_standard_streams
 (define (log-writer-standard-streams log-level fields-alist)
   (let ((port (log-level->port log-level)))
@@ -654,17 +628,14 @@ will be merged into a single string using (format #f param1 param2 ...)"
                                   (assoc-ref fields-alist "DOMAIN"))))
         ;; We try to send to the journald first, or then fallback to the
         ;; standard streams.
-        (if (not (log-writer-standard-streams log-level fields-alist))
-            ;; Looks like we failed to log anything normally, give up.
-            #f
-            ;; else
-            (begin
-              ;; We logged something.  Now we abort if
-              ;; the log was a fatal error.
-              (when (or (logtest log-level LOG_FATAL_MASK)
-                        (logtest log-level *log-always-fatal*))
-                (%log-abort (not (logand (logior log-level LOG_FLAG_FATAL) LOG_FLAG_RECURSION))))
-              #t))))))
+        (when *log-stream-enabled*
+          (log-writer-standard-streams log-level fields-alist))
+        (when *log-journal-enabled*
+          (send-alist-to-journal fields-alist))
+        (when (or (logtest log-level LOG_FATAL_MASK)
+                  (logtest log-level *log-always-fatal*))
+          (%log-abort (not (logand (logior log-level LOG_FLAG_FATAL) LOG_FLAG_RECURSION))))
+        #t))))
 
 ;; 2619: _g_log_writer_fallback
 (define (%log-writer-fallback log-level fields-alist)
@@ -690,43 +661,30 @@ the current error or output port."
      fields-alist)
     (format port "_PID=~s~%" (getpid))))
 
-;; 2850: _g_log_fallback_handler
-(define (%log-fallback-handler log-domain log-level _message)
-  "A very basic logging handler."
-  (let ((prefix (mklevel-prefix log-level #f))
-        (message
-         (if (or (not _message) (not (string? _message))
-                 (string-null? _message))
-             "(NULL) message"
-             _message))
-        (port (log-level->port log-level)))
-    (if log-domain
-        (write-string port "\n")
-        (write-string port "\n** "))
-    (write-string port "(process:")
-    (write-string port (number->string (getpid)))
-    (write-string port "):")
-    (when log-domain
-      (write-string port log-domain)
-      (write-string port "-"))
-    (write-string port prefix)
-    (write-string port ": ")
-    (write-string port message)))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (logging-init)
-  (set! *log-writer-func* log-writer-default)
-  (set! *default-log-func* log-default-handler)
+(define (log-enable-stream-output flag)
+  (when (eqv? flag #t)
+    (set! *log-stream-enabled* #t))
+  (when (eqv? flag #f)
+    (set! *log-stream-enabled* #f)))
 
+(define (log-enable-journal-output flag)
+  (when (eqv? flag #t)
+    (set! *log-journal-enabled* #t))
+  (when (eqv? flag #f)
+    (set! *log-journal-enabled* #f)))
+
+(define (logging-reset)
+  (set! *log-writer-func* log-writer-default)
   (set! *log-msg-prefix* (logior
                           LOG_LEVEL_ERROR
                           LOG_LEVEL_WARNING
                           LOG_LEVEL_CRITICAL
                           LOG_LEVEL_DEBUG))
-
+  (set! *log-journal-enabled* #t)
+  (set! *log-stream-enabled* #t)
   (set! *log-always-fatal* LOG_FATAL_MASK)
   (set! *log-start-time* (monotonic-time)))
 
-(logging-init)
+(logging-reset)

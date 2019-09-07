@@ -25,6 +25,7 @@ This manual is for Ryulib.
 
 @menu
 * The MLG utilities library::
+* mlg logging::
 * mlg utils::
 * C procedures::
 * Index::                       Complete index.
@@ -32,14 +33,173 @@ This manual is for Ryulib.
 
 @end menu
 
-@node The MLG utilities library, mlg utils, Top, Top
+@node The MLG utilities library, mlg logging, Top, Top
 @chapter The MLG utilities library
 
 Every programmer has a list of library routines that they use often.
 These are mine.  The @code{(mlg)} library is routines that seem somewhat
 basic but are not in the standard library.
 
-@node mlg utils, C procedures, The MLG utilities library, Top
+@node mlg logging, mlg utils, The MLG utilities library, Top
+@chapter mlg logging
+Every programmer in the world has written their own logging class.
+This is mine.  It is largely stolen from GLib.
+
+I had three goals when I put this together.
+
+@enumerate
+@item
+The user can choose to log to @code{systemd}'s @code{journald}
+and/or to the stdout/stderr.
+@item
+When logging to stdout/stderr, it should look and feel like
+GLib's logging.
+@item
+It should have colors.
+@end enumerate
+
+The logger has six levels of output
+@table @code
+@item LOG_LEVEL_ERROR
+errors and assertion failures
+@item LOG_LEVEL_CRITICAL
+critical warnings
+@item LOG_LEVEL_WARNING
+warnings
+@item LOG_LEVEL_MESSAGE
+important informational messages
+@item LOG_LEVEL_INFO
+informational messages
+@item LOG_LEVEL_DEBUG
+debug statements
+@end table
+
+By default, @code{LOG_LEVEL_ERROR} messages will cause the program to
+exit.
+
+By default @code{LOG_LEVEL_ERROR}, @code{LOG_LEVEL_CRITICAL},
+@code{LOG_LEVEL_WARNING}, and @code{LOG_LEVEL_MESSAGE} messages are
+printed, while @code{LOG_LEVEL_INFO} and @code{LOG_LEVEL_DEBUG} messages
+are silently dropped.  The next section describes how to modify this
+behavior.
+
+@section Setting up the logger
+There are a few ways to customize the output.
+
+@subsection MESSAGES_DEBUG and the log domain
+If you set a log domain using the @code{set-log-domain} procedure,
+logging messages will print out the log domain string as part of each
+message.  Setting a short log domain string can be useful if you are
+sending logging messages from multiple modules or subsystem.
+
+@code{LOG_LEVEL_INFO} and @code{LOG_LEVEL_DEBUG} messages are silently
+dropped by default.  To have them output, you can do one of two things.
+@itemize
+@item
+Set the @env{MESSAGES_DEBUG} environment variable to the string
+@code{all}.
+@item
+Use the procedure @code{set-log-domain} to set the log domain to a
+string, and then set the @env{MESSAGES_DEBUG} environment variable to a
+string that contains the log domain string.
+@end itemize
+
+@deffn Procedure set-log-domain str
+@deffnx Procedure get-log-domain
+Sets or gets the current log domain. @var{str} must be a string.
+@end deffn
+
+@subsection Enabling journald and console output
+
+By default, the logger will sent messages both to @code{journald} and to
+the console.  You can disable one or the other by using the
+@code{log-set-stream-output} and @code{log-set-journal-output}
+procedures
+
+@deffn Procedure log-set-stream-output flag
+@deffnx Procedure log-set-journal-output flag
+Given a @var{flag} value, which must be @code{#t} or @code{#f}, these
+procedures enable or disable the output of logging information to
+stdout/stderr and to @code{journald} respectively.
+
+If you disable both stream and journal output, no log information will
+be generated, but, a message of @code{LOG_LEVEL_ERROR} will still end
+the program.
+@end deffn
+
+@subsection Enabling color
+
+By default, logging messages sent to the console will be colorized based
+on the severity of the message.  This behavior can be modified by using
+the @code{log-enable-color} procedure.
+
+@deffn Procedure log-enable-color flag
+Given a @var{flag} value, which must be @code{#t} or @code{#f}, this
+procedure enables or disables color on console output.
+@end deffn
+
+@section Logging messages
+
+These procedures can be used to generate logging output
+
+@deffn Procedure log-error msg ...
+@deffnx Procedure log-critical msg ...
+@deffnx Procedure log-warning msg ...
+@deffnx Procedure log-message msg ...
+@deffnx Procedure log-info msg ...
+@deffnx Procedure log-debug msg ...
+
+These procedures generate a logging message of a given priority.
+@var{msg} can either be a plain string, or it can be a @code{format}
+string followed by additional arguments.
+
+@code{log-info} and @code{log-debug} messages are dropped silently by
+default unless the @env{MESSAGES_DEBUG} envirnoment variable and the log
+domain have been set appropriately.
+@end deffn
+
+There are also specialized forms of the @code{log-domain} message that
+may be useful.
+
+@deffn Syntax warn-if-reached
+If this syntax is called, it logs a critical warning message that this
+code should not have been reached.
+@end deffn
+
+@deffn Syntax warn-if-used val
+The syntax returns the @var{val} that was passed into it without
+modification, and it generates a critical warning message that this
+value should not have been used.
+@end deffn
+
+@deffn Syntax warn-if-false expr
+If @var{expr} is false, this will log a critical warning message that
+this value is false.
+@end deffn
+
+@deffn Syntax warn-val-if-used val
+The syntax returns the @var{val} that was passed into it without
+modification, and it generates a critical warning message if the value
+is false.
+@end deffn
+
+@deffn Syntax log-debug-pk expr
+The syntax returns the @var{expr} that was passed into it without
+modification, and it generates a debug message giving the value of
+@var{expr}.
+@end deffn
+
+@deffn Syntax log-debug-locals
+This syntax generates a debug message giving the values of all the local
+variables at this position in the code.
+@end deffn
+
+@deffn Syntax log-debug-time
+This syntax generates a debug message giving the number of seconds that
+have passed since logging began
+@end deffn
+
+@node mlg utils, C procedures, mlg logging, Top
 @chapter mlg utils
 
 The bulk of this module is procedures that search for special directory
