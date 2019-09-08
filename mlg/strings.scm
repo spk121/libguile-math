@@ -36,7 +36,8 @@
             string->ed-escaped-string
             string-x-cell->x-data
             string-is-valid-posix-make-macro-name?
-            string-ensure-single-newline))
+            string-ensure-single-newline
+            string-append-map))
 
 (define (string-ends-with? str char)
   "Return #t is the last character in string STR
@@ -602,5 +603,11 @@ contains any other line terminators, they will be removed."
                   ""
                   str)
      "\n")))
+
+(define (string-append-map f lst)
+  "Equivalent to (apply string-append (map f lst)).
+Maps the procedure F of the elements of a list of strings,
+appending the results together as a single string."
+  (apply string-append (map f lst)))
 
 (load-extension "libguile-mlg" "init_strings_lib")

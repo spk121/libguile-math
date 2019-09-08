@@ -219,6 +219,12 @@ NELs, and Unicode line and paragraph separators removed.  A single
 newline is appended to the end of the string.
 @end deffn
 
+@deffn Procedure string-append-map f lst
+Equivalent to @code{(apply string-append (map f lst))}.  Maps the
+procedure @var{f} of the elements of a list of strings @var{lst},
+appending the results together as a single string.
+@end deffn
+
 @node mlg utils, C procedures, mlg strings, Top
 @chapter mlg utils
 
