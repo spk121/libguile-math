@@ -26,6 +26,7 @@ This manual is for Ryulib.
 * The MLG utilities library::
 * mlg bytevectors::
 * mlg logging::
+* mlg strings::
 * mlg utils::
 * C procedures::
 * Index::                       Complete index.
@@ -50,7 +51,7 @@ bytevector, and the bytes required, this returns a newly allocated
 bytevector containing that region of the source.
 @end deffn
 
-@node mlg logging, mlg utils, mlg bytevectors, Top
+@node mlg logging, mlg strings, mlg bytevectors, Top
 @chapter mlg logging
 Every programmer in the world has written their own logging class.
 This is mine.  It is largely stolen from GLib.
@@ -209,7 +210,16 @@ This syntax generates a debug message giving the number of seconds that
 have passed since logging began
 @end deffn
 
-@node mlg utils, C procedures, mlg logging, Top
+@node mlg strings, mlg utils, mlg logging, Top
+@chapter mlg strings
+
+@deffn Procedure string-ensure-single-newline str
+This returns a copy of @var{str} with any newlines, linefeeds,
+NELs, and Unicode line and paragraph separators removed.  A single
+newline is appended to the end of the string.
+@end deffn
+
+@node mlg utils, C procedures, mlg strings, Top
 @chapter mlg utils
 
 The bulk of this module is procedures that search for special directory

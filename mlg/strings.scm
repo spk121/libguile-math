@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg strings) - more helper functions for strings
-;;; Copyright (C) 2017, 2018 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2018, 2019 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -35,7 +35,8 @@
             string-strip-escapes
             string->ed-escaped-string
             string-x-cell->x-data
-            string-is-valid-posix-make-macro-name?))
+            string-is-valid-posix-make-macro-name?
+            string-ensure-single-newline))
 
 (define (string-ends-with? str char)
   "Return #t is the last character in string STR
@@ -583,5 +584,23 @@ spaces.  If PAD is true, the end of the line is padded with spaces."
        (not (string-index str
                           (lambda (c)
                             (not (is-valid-posix-make-macro-name-char? c)))))))
+
+(define (string-ensure-single-newline str)
+  "Returns a copy of str with a newline at the end.  If the string
+contains any other line terminators, they will be removed."
+  (let ((terminators '(#\newline #\linefeed
+                       #\x0085          ; NEL
+                       #\x2028          ; Line separator
+                       #\x2029          ; Paragraph separator
+                       )))
+    (string-append
+     (string-fold (lambda (c s)
+                    (if (member c terminators)
+                        s
+                        ;; else
+                        (string-append s (string c))))
+                  ""
+                  str)
+     "\n")))
 
 (load-extension "libguile-mlg" "init_strings_lib")
