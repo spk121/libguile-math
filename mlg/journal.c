@@ -1,4 +1,5 @@
 #include <libguile.h>
+#define SD_JOURNAL_SUPPRESS_LOCATION
 #include <systemd/sd-journal.h>
 #include <sys/uio.h>
 #include <libguile.h>
@@ -28,7 +29,7 @@ mlg_send_alist_to_journal (SCM s_alist)
   if (!scm_is_true (scm_list_p (s_alist))
       || scm_is_null (s_alist))
     return scm_from_int (0);
-  
+
   list_len = scm_to_int (scm_length (s_alist));
   struct iovec *c_entries
     = (struct iovec *) malloc (sizeof (struct iovec) * list_len);
@@ -37,45 +38,45 @@ mlg_send_alist_to_journal (SCM s_alist)
       SCM s_entry, s_key, s_val;
       s_entry = scm_list_ref (s_alist, scm_from_int (i));
       if (scm_is_true (scm_pair_p (s_entry)))
-	{
-	  s_key = scm_car (s_entry);
-	  s_val = scm_cdr (s_entry);
-	  if (scm_is_symbol (s_key))
-	    s_key = scm_symbol_to_string (s_key);
+        {
+          s_key = scm_car (s_entry);
+          s_val = scm_cdr (s_entry);
+          if (scm_is_symbol (s_key))
+            s_key = scm_symbol_to_string (s_key);
 
-	  if (scm_is_string (s_key)
-	      && (scm_is_string (s_val)
-		  || scm_is_bytevector (s_val)))
-	    {
-	      c_key = scm_to_variable_name_string (s_key, &c_key_len);
-	      if (c_key == NULL)
-		continue;
-	      
-	      if (scm_is_string (s_val))
-		s_val = scm_string_to_utf8 (s_val);
-	      if (SCM_BYTEVECTOR_LENGTH (s_val) == 0)
-		{
-		  free (c_key);
-		  continue;
-		}
+          if (scm_is_string (s_key)
+              && (scm_is_string (s_val)
+                  || scm_is_bytevector (s_val)))
+            {
+              c_key = scm_to_variable_name_string (s_key, &c_key_len);
+              if (c_key == NULL)
+                continue;
 
-	      size_t total_len = c_key_len + SCM_BYTEVECTOR_LENGTH(s_val) + 1;
-	      c_entries[count].iov_base = (void *) malloc (total_len);
-	      memcpy ((char *) c_entries[count].iov_base, c_key, c_key_len);
-	      ((char *)(c_entries[count].iov_base))[c_key_len] = '=';
-	      memcpy ((char *)c_entries[count].iov_base + c_key_len + 1,
-		      SCM_BYTEVECTOR_CONTENTS (s_val),
-		      SCM_BYTEVECTOR_LENGTH (s_val));
-	      c_entries[count].iov_len = total_len;
-	      count ++;
-	    }
-	}
+              if (scm_is_string (s_val))
+                s_val = scm_string_to_utf8 (s_val);
+              if (SCM_BYTEVECTOR_LENGTH (s_val) == 0)
+                {
+                  free (c_key);
+                  continue;
+                }
+
+              size_t total_len = c_key_len + SCM_BYTEVECTOR_LENGTH(s_val) + 1;
+              c_entries[count].iov_base = (void *) malloc (total_len);
+              memcpy ((char *) c_entries[count].iov_base, c_key, c_key_len);
+              ((char *)(c_entries[count].iov_base))[c_key_len] = '=';
+              memcpy ((char *)c_entries[count].iov_base + c_key_len + 1,
+                      SCM_BYTEVECTOR_CONTENTS (s_val),
+                      SCM_BYTEVECTOR_LENGTH (s_val));
+              c_entries[count].iov_len = total_len;
+              count ++;
+            }
+        }
     }
   if (count > 0)
     {
       ret = sd_journal_sendv (c_entries, count);
       for (int i = 0; i < count; i ++)
-	free (c_entries[i].iov_base);
+        free (c_entries[i].iov_base);
     }
   free (c_entries);
   free (c_key);
@@ -116,7 +117,7 @@ safe_char (wchar_t wc)
   else if (wc == 0xD1 || wc == 0xF1)
     return 'N';
   else if ((wc >= 0xD2 && wc <= 0xD6) || wc == 0xD8
-	   || (wc >= 0xF2 && wc <= 0xF6) || wc == 0xF8)
+           || (wc >= 0xF2 && wc <= 0xF6) || wc == 0xF8)
     return 'O';
   else if ((wc >= 0xD9 && wc <= 0xDC) || (wc >= 0xF9 && wc <= 0xFC))
     return 'U';
@@ -144,14 +145,14 @@ scm_to_variable_name_string (SCM s_str, size_t *ret_len)
 
   if (safe_char (SCM_CHAR (scm_c_string_ref (s_str, 0))) == '_')
     underscore_start = 1;
-  
+
   char *c_str = (char *) malloc (sizeof(char) * (len + 1 + underscore_start));
   if (underscore_start)
     c_str[0] = 'X';
   for (int i = 0; i < len; i ++)
     {
       c_str[i + underscore_start]
-	= safe_char (SCM_CHAR (scm_string_ref (s_str, scm_from_int (i))));
+        = safe_char (SCM_CHAR (scm_string_ref (s_str, scm_from_int (i))));
     }
   c_str[len + underscore_start] = '\0';
   *ret_len = len + underscore_start;
@@ -162,5 +163,5 @@ void
 init_journal_lib ()
 {
   scm_c_define_gsubr ("send-alist-to-journal", 1, 0, 0,
-		      mlg_send_alist_to_journal);
+                      mlg_send_alist_to_journal);
 }

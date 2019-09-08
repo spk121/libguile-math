@@ -626,8 +626,7 @@ will be merged into a single string using (format #f param1 param2 ...)"
                 (false-if-exception
                  (string-contains domains
                                   (assoc-ref fields-alist "DOMAIN"))))
-        ;; We try to send to the journald first, or then fallback to the
-        ;; standard streams.
+        ;; Now send the alist to the journald and/or the stdout/stderr
         (when *log-stream-enabled*
           (log-writer-standard-streams log-level fields-alist))
         (when *log-journal-enabled*
