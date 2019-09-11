@@ -1,6 +1,10 @@
-#include <libguile.h>
+#if HAVE_CONFIG_H
+#include "config.h"
+#endif
+#if HAVE_SYSTEMD_SD_JOURNAL_H
 #define SD_JOURNAL_SUPPRESS_LOCATION
 #include <systemd/sd-journal.h>
+#endif
 #include <sys/uio.h>
 #include <libguile.h>
 #include "journal.h"

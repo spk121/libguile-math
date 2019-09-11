@@ -1,12 +1,13 @@
 \input texinfo
-@settitle RyuLib
+@setfilename mlg_lib.info
+@settitle MLG Lib
 
 @copying
 Copyright @copyright{} 2017, 2019 Mike Gran
 @end copying
 
 @titlepage
-@title Ryulib
+@title MLG Lib
 @page
 @vskip 0pt plus 1filll
 @insertcopying
@@ -18,9 +19,9 @@ Copyright @copyright{} 2017, 2019 Mike Gran
 @ifnottex
 @node Top, The MLG utilities library, (dir), (dir)
 
-@top Ryulib
+@top MLG Lib
 
-This manual is for Ryulib.
+This manual is for MLG Lib.
 
 @menu
 * The MLG utilities library::

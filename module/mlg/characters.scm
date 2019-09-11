@@ -228,4 +228,5 @@ make macro name, e.g., that it is ASCII alphanumeric, period or underscore."
   "Return #t if this is a combining mark, like an accent"
   (member (char-general-category c) '(Mn Mc Me)))
 
-(load-extension "libguile-mlg" "init_chars_lib")
+(define (characters-load-extension)
+  (load-extension "libmlg" "init_chars_lib"))

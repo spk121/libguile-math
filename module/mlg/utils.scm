@@ -319,5 +319,5 @@ any of this user's data directories."
              (else
               (loop (car rest) (cdr rest)))))))))
 
-(define (utils-extensions)
-  (load-extension "libguile-mlg" "init_utils_lib"))
+(define (utils-load-extension)
+  (load-extension "libmlg" "init_utils_lib"))

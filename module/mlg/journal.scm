@@ -1,6 +1,6 @@
 (define-module (mlg journal)
   #:export (send-alist-to-journal))
 
-(load-extension "libguile-mlg" "init_journal_lib")
+(load-extension "libmlg" "init_journal_lib")
 
   
