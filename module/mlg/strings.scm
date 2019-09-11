@@ -610,4 +610,5 @@ Maps the procedure F of the elements of a list of strings,
 appending the results together as a single string."
   (apply string-append (map f lst)))
 
-(load-extension "libguile-mlg" "init_strings_lib")
+(define (strings-load-extension)
+  (load-extension "libmlg" "init_strings_lib"))

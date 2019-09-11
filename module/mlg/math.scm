@@ -556,4 +556,4 @@ h as a step size."
 (define (math-load-extension)
   (unless *math-lib-loaded*
     (set! *math-lib-loaded* #t)
-    (load-extension "libguile-mlg" "init_math_lib")))
+    (load-extension "libmlg" "init_math_lib")))
