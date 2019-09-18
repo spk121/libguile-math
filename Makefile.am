@@ -8,8 +8,8 @@ guileextensiondir = $(GUILE_EXTENSION)
 guileextension_LTLIBRARIES = libmlg.la
 
 AM_CFLAGS = $(GUILE_CFLAGS)
-AM_LIBS = $(GUILE_LIBS)
-AM_LDFLAGS = -avoid-version
+AM_LIBS = $(GUILE_LTLIBS)
+AM_LDFLAGS = $(GUILE_LDFLAGS) -avoid-version
 
 libmlg_la_SOURCES = \
   src/chars.c \
@@ -27,7 +27,7 @@ guileobjectdir = $(GUILE_SITE_CCACHE)
 mlgguilesitedir = $(guilesitedir)/mlg
 ryuguilesitedir = $(guilesitedir)/ryu
 mlgguileobjectdir = $(guileobjectdir)/mlg
-ryuguileobjectdir = $(guileobjectdir)/mlg
+ryuguileobjectdir = $(guileobjectdir)/ryu
 
 dist_mlgguilesite_DATA = \
  module/mlg/assert.scm \
