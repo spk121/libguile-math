@@ -25,6 +25,7 @@ This manual is for MLG Lib.
 
 @menu
 * The MLG utilities library::
+* mlg assert::
 * mlg bytevectors::
 * mlg logging::
 * mlg strings::
@@ -35,16 +36,42 @@ This manual is for MLG Lib.
 
 @end ifnottex
 
-@node The MLG utilities library, mlg bytevectors, Top, Top
+@node The MLG utilities library, mlg assert, Top, Top
 @chapter The MLG utilities library
 
 Every programmer has a list of library routines that they use often.
 These are mine.  The @code{(mlg)} library is routines that seem somewhat
 basic but are not in the standard library.
 
-@node mlg bytevectors, mlg logging, The MLG utilities library, Top
+@node mlg assert, mlg bytevectors, The MLG utilities library, Top
+@chapter mlg assert
+
+Here are some assert macros.  These are different in that they will
+try to print the filename and line number along with their failure message
+
+@deffn Syntax assert expression
+If @var{expression} is @code{#f} this will call @code{error}.  The
+error message will say 'assertion failed' and print the current
+filename and line number.
+@end deffn
+
+@deffn Syntax assert-type type var
+Given a symbol @var{type}, this syntax calls the predicate whose
+name is @var{type} followed with a question mark, and prints an
+assertion error on failure.
+
+For example @code{(assert symbol 'foo)} will error if
+@code{(symbol? 'foo)} evaluates to @code{#f}.
+@end deffn
+
+@node mlg bytevectors, mlg logging, mlg assert, Top
 @chapter mlg bytevectors
 Here are some helper functions for working with bytevectors.
+
+@deffn Procedure f32vector-max bytevector
+Treating @var{bytevector} like a vector of 32-bit floats, this
+returns the largest entry.
+@end deffn
 
 @deffn Procedure subbytevector source source-start len
 Given a bytevector @var{source}, a @var{source-start} location in the
