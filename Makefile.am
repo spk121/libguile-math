@@ -22,8 +22,6 @@ libmlg_la_SOURCES = \
   src/utils.c \
   src/utils.h
 
-guilesitedir = $(GUILE_SITE)
-guileobjectdir = $(GUILE_SITE_CCACHE)
 mlgguilesitedir = $(guilesitedir)/mlg
 ryuguilesitedir = $(guilesitedir)/ryu
 mlgguileobjectdir = $(guileobjectdir)/mlg

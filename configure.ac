@@ -11,8 +11,11 @@ AC_CHECK_HEADERS([systemd/sd-journal.h unistd.h])
 AC_SEARCH_LIBS([sd_journal_sendv],[systemd])
 AC_CHECK_FUNCS([sysconf])
 
+GUILE_PKG([2.2])
 GUILE_PROGS
 GUILE_FLAGS
+GUILE_SITE_DIR
+
 AC_SUBST([GUILE_EFFECTIVE_VERSION])
 
 ################
