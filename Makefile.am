@@ -8,8 +8,8 @@ guileextensiondir = $(GUILE_EXTENSION)
 guileextension_LTLIBRARIES = libmlg.la
 
 AM_CFLAGS = $(GUILE_CFLAGS)
-AM_LIBS = $(GUILE_LTLIBS)
-AM_LDFLAGS = $(GUILE_LDFLAGS) -avoid-version
+AM_LIBS = $(GUILE_LTLIBS) -lsystemd
+AM_LDFLAGS = $(GUILE_LDFLAGS) -no-undefined -avoid-version
 
 libmlg_la_SOURCES = \
   src/chars.c \
