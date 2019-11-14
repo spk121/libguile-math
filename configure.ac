@@ -30,26 +30,41 @@ AS_CASE(["x$with_gnu_filesystem_hierarchy"], [xyes],
     [
     # Follow the GNU File System Hierarchy Standard correctly
     # Installed .scm scheme libraries go here
-    AC_MSG_CHECKING([for Guile site directory using FHS])
-    GUILE_SITE="\${datadir}/guile/site/$GUILE_EFFECTIVE_VERSION"
-    AC_MSG_RESULT([$GUILE_SITE])
-    AC_SUBST([GUILE_SITE])
+    AC_MSG_CHECKING([Guile site directory])
+    guilesitedir="\${datadir}/guile/site/$GUILE_EFFECTIVE_VERSION"
+    AC_MSG_RESULT([$guilesitedir])
+    AC_SUBST(guilesitedir)
 
     # Compiled libguile-*.so extension libraries go here
-    AC_MSG_CHECKING([for Guile extension directory using FHS])
-    GUILE_EXTENSION="$libdir/guile/$GUILE_EFFECTIVE_VERSION"
+    AC_MSG_CHECKING([Guile extension directory])
+    guileextensiondir="\${libdir}/guile/$GUILE_EFFECTIVE_VERSION"
     AC_MSG_RESULT([$guileextensiondir])
-    AC_SUBST([GUILE_EXTENSION])
+    AC_SUBST(guileextensiondir)
 
     # Compiled .go scheme libraries go here
-    AC_MSG_CHECKING([for Guile object directory using FHS])
-    GUILE_SITE_CCACHE="$libdir/guile/$GUILE_EFFECTIVE_VERSION/site-ccache"
-    AC_MSG_RESULT([$GUILE_SITE_CCACHE])
-    AC_SUBST([GUILE_SITE_CCACHE])],
+    AC_MSG_CHECKING([Guile object directory])
+    guileobjectdir="\${libdir}/guile/$GUILE_EFFECTIVE_VERSION/site-ccache"
+    AC_MSG_RESULT([$guileobjectdir])
+    AC_SUBST(guileobjectdir)],
     [
     # Get the installation directories from Guile
-    GUILE_SITE_DIR
-])
+    # Installed .scm scheme libraries go here
+    AC_MSG_CHECKING([Guile site directory])
+    guilesitedir=$GUILE_SITE
+    AC_MSG_RESULT([$guilesitedir])
+    AC_SUBST(guilesitedir)
+
+    # Compiled libguile-*.so extension libraries go here
+    AC_MSG_CHECKING([Guile extension directory])
+    guileextensiondir=$GUILE_EXTENSION
+    AC_MSG_RESULT([$guileextensiondir])
+    AC_SUBST(guileextensiondir)
+
+    # Compiled .go scheme libraries go here
+    AC_MSG_CHECKING([Guile object directory])
+    guileobjectdir=$GUILE_SITE_CCACHE
+    AC_MSG_RESULT([$guileobjectdir])
+    AC_SUBST(guileobjectdir)])
 
 ################
 # Check for Libtool
