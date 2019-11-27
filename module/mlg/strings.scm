@@ -36,6 +36,7 @@
             string->ed-escaped-string
             string-x-cell->x-data
             string-is-valid-posix-make-macro-name?
+            string-is-terminated?
             string-ensure-single-newline
             string-append-map))
 
@@ -585,6 +586,22 @@ spaces.  If PAD is true, the end of the line is padded with spaces."
        (not (string-index str
                           (lambda (c)
                             (not (is-valid-posix-make-macro-name-char? c)))))))
+
+(define (string-is-terminated? str)
+  "Returns #t if str has a line terminator at the end"
+  (assert (string? str))
+  (if (string-null? str)
+      #f
+      (let ((end-char (string-ref str (1- (string-length str)))))
+        (if (any (lambda (c)
+                   (char=? c end-char))
+                 '(#\newline #\linefeed
+                   #\x0085          ; NEL
+                   #\x2028          ; Line separator
+                   #\x2029          ; Paragraph separator
+                   ))
+            #t
+            #f))))
 
 (define (string-ensure-single-newline str)
   "Returns a copy of str with a newline at the end.  If the string
