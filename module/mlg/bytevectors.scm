@@ -39,6 +39,7 @@
 (define *maximum-read* #xffffffffffffffff)
 
 (define (f32vector-max bv)
+  "Return the largest element in a SRFI-4 float32 vector"
   (let ((len (f32vector-length bv))
         (hi -3.40282347e+38))
     (do ((i 0 (1+ i))) ((>= i len))

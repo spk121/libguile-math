@@ -620,12 +620,12 @@ will be merged into a single string using (format #f param1 param2 ...)"
     ;; If the log-level is not in the DEFAULT_LEVELS, it is only
     ;; logged if there is a DOMAIN key in the fields which matches a
     ;; string in the MESSAGES_DEBUG environment variable.
-    (let ((domains (or (getenv "MESSAGES_DEBUG") "")))
+    (let ((domains (or (getenv "MESSAGES_DEBUG") ""))
+          (domain-field (assoc-ref fields-alist "DOMAIN")))
       (when (or (logtest log-level DEFAULT_LEVELS)
                 (string-contains domains "all")
-                (false-if-exception
-                 (string-contains domains
-                                  (assoc-ref fields-alist "DOMAIN"))))
+                (and (string? domain-field)
+                     (string-contains domains domain-field)))
         ;; Now send the alist to the journald and/or the stdout/stderr
         (when *log-stream-enabled*
           (log-writer-standard-streams log-level fields-alist))
