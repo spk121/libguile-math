@@ -29,6 +29,7 @@ This manual is for MLG Lib.
 * mlg bytevectors::
 * mlg logging::
 * mlg lists::
+* mlg port::
 * mlg strings::
 * mlg utils::
 * C procedures::
@@ -248,6 +249,20 @@ Return @code{#t} if the first N elements in the list is between
 than N elements, check all the elements in the list.
 @end deffn
 
+@node mlg port
+@chapter mlg port
+
+@deffn Procedure read-line-terminator #:optional port
+Reads and returns, as a string, one awaiting line terminator character
+combination from @var{port}, or from the current input port, of
+@var{port} is not specified.  If the port is at @code{EOF} it returns
+@code{<eof>}.  The line terminators searched are return, linefeed,
+vtab, return + linefeed, Unicode line separator, and Unicode paragraph
+separator.  If the next available character in the port is not a line
+terminator character, it returns the empty string.
+@end deffn
+
+
 @node mlg strings
 @chapter mlg strings
 
@@ -338,5 +353,3 @@ This is the second item.
 @printindex cp
 
 @bye
-
-

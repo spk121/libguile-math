@@ -1,6 +1,6 @@
 ;;; -*- mode: scheme; coding: us-ascii; indent-tabs-mode: nil; -*-
 ;;; (mlg port) - commands for reading from ports
-;;; Copyright (C) 2017 Michael L. Gran <spk121@yahoo.com>
+;;; Copyright (C) 2017, 2019 Michael L. Gran <spk121@yahoo.com>
 ;;;
 ;;; This program is free software: you can redistribute it and/or
 ;;; modify it under the terms of the GNU General Public License as
@@ -45,6 +45,7 @@
             read-extended-line
             read-filter
             read-whitespace
+            read-line-terminator
             read-integer
             read-regex-string
             read-replacement-string
@@ -755,6 +756,36 @@ found, returns an empty string.  If the port is at EOF, returns EOF."
               (loop (string-append output (string (read-char port))))
               ;; else, the next char is not whitespace, so we're done.
               output)))))
+
+(define* (read-line-terminator #:optional (port (current-input-port)))
+  "Reads and returns any awating line terminator characters from port.
+The line terminators searched for are CR, LF, CRLF, NEL, LS and PS.
+If a line terminator is found, returns it as a string.  If no
+terminator is found, returns an empty string.  If the port is at EOF,
+returns EOF."
+  (let ((c (peek-char port)))
+    (cond
+     ((eof-object? c)
+      ;; No chars available, so return EOF.
+      c)
+
+     ;; Search for the CRLF pattern.
+     ((and (char=? c #\return)
+           (char=? (peek-2nd-char-safe port) #\newline))
+      (string (read-char port) (read-char port)))
+
+     ;; Otherwise, search for one of the single character line terminators.
+     ((member c (list #\return
+                      #\newline
+                      #\205
+                      #\vtab
+                      #\20050
+                      #\20051))
+      (string (read-char port)))
+
+     ;; No line terminator found.
+     (else
+      ""))))
 
 (define* (read-integer #:optional (port (current-input-port)) (base 0))
   "Read a string representation of an integer from PORT, assuming

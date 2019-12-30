@@ -85,7 +85,8 @@ TESTS = \
   tests/t-mlg-bytevectors.scm \
   tests/t-mlg-characters.scm \
   tests/t-mlg-lists.scm \
-  tests/t-mlg-math.scm
+  tests/t-mlg-math.scm \
+  tests/t-mlg-ports.scm
 
 TEST_EXTENSIONS = .scm
 
