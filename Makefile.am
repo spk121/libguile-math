@@ -4,7 +4,6 @@ AM_DISTCHECK_CONFIGURE_FLAGS = --with-gnu-filesystem-hierarchy
 
 info_TEXINFOS = doc/mlg_lib.texi
 
-guileextensiondir = $(GUILE_EXTENSION)
 guileextension_LTLIBRARIES = libmlg.la
 
 AM_CFLAGS = $(GUILE_CFLAGS)
@@ -44,10 +43,10 @@ dist_mlgguilesite_DATA = \
  module/mlg/typechecking.scm \
  module/mlg/utils.scm
 
-nodist_data_DATA = \
- module/mlg/regex.scm \
- module/mlg/spreadsheet.scm \
- module/mlg/state.scm
+# nodist_data_DATA = \
+#  module/mlg/regex.scm \
+#  module/mlg/spreadsheet.scm \
+#  module/mlg/state.scm
 
 dist_ryuguilesite_DATA = \
  module/ryu/core.scm \
@@ -75,6 +74,10 @@ GUILEC_FLAGS = \
 	-o "$@" "$<"
 
 $(mlgguileobject_DATA) $(ryuguileobject_DATA): $(guileextension_LTLIBRARIES)
+
+CLEANFILES = \
+  $(mlgguileobject_DATA) \
+  $(ryuguileobject_DATA)
 
 EXTRA_DIST =
 ################################################################
