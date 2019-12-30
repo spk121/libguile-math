@@ -73,4 +73,8 @@ LT_PREREQ([2.2])
 LT_INIT([disable-fast-install disable-static win32-dll])
 
 AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([tools/uninstalled-env], [chmod +x tools/uninstalled-env])
+AC_REQUIRE_AUX_FILE([test-driver])
+AC_REQUIRE_AUX_FILE([test-driver.scm])
+
 AC_OUTPUT

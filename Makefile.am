@@ -75,3 +75,28 @@ GUILEC_FLAGS = \
 	-o "$@" "$<"
 
 $(mlgguileobject_DATA) $(ryuguileobject_DATA): $(guileextension_LTLIBRARIES)
+
+EXTRA_DIST =
+################################################################
+# TEST
+
+TESTS = \
+  tests/t-mlg-strings.scm \
+  tests/t-mlg-bytevectors.scm \
+  tests/t-mlg-characters.scm \
+  tests/t-mlg-lists.scm \
+  tests/t-mlg-math.scm
+
+TEST_EXTENSIONS = .scm
+
+XFAIL_TESTS =
+
+SCM_LOG_DRIVER = \
+  $(top_builddir)/tools/uninstalled-env \
+  $(GUILE) --no-auto-compile $(top_srcdir)/build-aux/test-driver.scm
+
+EXTRA_DIST += $(TESTS) $(XFAIL_TESTS)
+
+test: check
+
+.PHONY: test

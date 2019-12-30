@@ -1,14 +1,14 @@
 (use-modules (srfi srfi-64)
-	     (mlg lists))
+             (mlg lists))
 
 (test-begin "t-mlg-lists")
 (define BigL (iota 10000))
 (define MediumL (iota 100))
 (define SmallL (iota 1))
 
-(test-assert (list-range-check-n? '() 10 0 10))
-(test-assert (list-range-check-n? MediumL 3 0 2))
-(test-assert (not (list-range-check-n? MediumL 3 3 6)))
+(test-assert "list-range-check-n? '() 10 0 10" (list-range-check-n? '() 10 0 10))
+(test-assert "list-range-check-n? MediumL 3 0 2" (list-range-check-n? MediumL 3 0 2))
+(test-assert "list-range-check-n? MediumL 3 3 6" (not (list-range-check-n? MediumL 3 3 6)))
 
 (test-assert (list-range-check-right-n? '() 10 0 10))
 (test-assert (list-range-check-right-n? MediumL 3 97 99))
