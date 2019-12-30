@@ -77,6 +77,8 @@ it returns #f."
                 (loop (1+ i))))))))
 
 (define (string-ref-safe str i)
+  "Returns the nth character in a string, or #\null if there is no
+such character."
   (if (or (not (string? str))
           (not (and (integer? i) (>= i 0))))
       #\null
