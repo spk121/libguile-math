@@ -4,12 +4,11 @@ AM_DISTCHECK_CONFIGURE_FLAGS = --with-gnu-filesystem-hierarchy
 
 info_TEXINFOS = doc/mlg_lib.texi
 
-guileextensiondir = $(GUILE_EXTENSION)
 guileextension_LTLIBRARIES = libmlg.la
 
 AM_CFLAGS = $(GUILE_CFLAGS)
-AM_LIBS = $(GUILE_LTLIBS)
-AM_LDFLAGS = $(GUILE_LDFLAGS) -avoid-version
+AM_LIBS = $(GUILE_LTLIBS) -lsystemd
+AM_LDFLAGS = $(GUILE_LDFLAGS) -no-undefined -avoid-version
 
 libmlg_la_SOURCES = \
   src/chars.c \
@@ -44,10 +43,10 @@ dist_mlgguilesite_DATA = \
  module/mlg/typechecking.scm \
  module/mlg/utils.scm
 
-nodist_data_DATA = \
- module/mlg/regex.scm \
- module/mlg/spreadsheet.scm \
- module/mlg/state.scm
+# nodist_data_DATA = \
+#  module/mlg/regex.scm \
+#  module/mlg/spreadsheet.scm \
+#  module/mlg/state.scm
 
 dist_ryuguilesite_DATA = \
  module/ryu/core.scm \
@@ -75,3 +74,33 @@ GUILEC_FLAGS = \
 	-o "$@" "$<"
 
 $(mlgguileobject_DATA) $(ryuguileobject_DATA): $(guileextension_LTLIBRARIES)
+
+CLEANFILES = \
+  $(mlgguileobject_DATA) \
+  $(ryuguileobject_DATA)
+
+EXTRA_DIST =
+################################################################
+# TEST
+
+TESTS = \
+  tests/t-mlg-strings.scm \
+  tests/t-mlg-bytevectors.scm \
+  tests/t-mlg-characters.scm \
+  tests/t-mlg-lists.scm \
+  tests/t-mlg-math.scm \
+  tests/t-mlg-ports.scm
+
+TEST_EXTENSIONS = .scm
+
+XFAIL_TESTS =
+
+SCM_LOG_DRIVER = \
+  $(top_builddir)/tools/uninstalled-env \
+  $(GUILE) --no-auto-compile $(top_srcdir)/build-aux/test-driver.scm
+
+EXTRA_DIST += $(TESTS) $(XFAIL_TESTS)
+
+test: check
+
+.PHONY: test

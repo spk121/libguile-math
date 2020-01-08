@@ -78,7 +78,11 @@ mlg_send_alist_to_journal (SCM s_alist)
     }
   if (count > 0)
     {
+#if HAVE_SYSTEMD_SD_JOURNAL_H
       ret = sd_journal_sendv (c_entries, count);
+#else
+      ret = -1;
+#endif
       for (int i = 0; i < count; i ++)
         free (c_entries[i].iov_base);
     }

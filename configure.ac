@@ -11,7 +11,7 @@ AC_CHECK_HEADERS([systemd/sd-journal.h unistd.h])
 AC_SEARCH_LIBS([sd_journal_sendv],[systemd])
 AC_CHECK_FUNCS([sysconf])
 
-GUILE_PKG([2.2])
+GUILE_PKG([3.0 2.2])
 GUILE_PROGS
 GUILE_FLAGS
 GUILE_SITE_DIR
@@ -30,26 +30,41 @@ AS_CASE(["x$with_gnu_filesystem_hierarchy"], [xyes],
     [
     # Follow the GNU File System Hierarchy Standard correctly
     # Installed .scm scheme libraries go here
-    AC_MSG_CHECKING([for Guile site directory using FHS])
-    GUILE_SITE="\${datadir}/guile/site/$GUILE_EFFECTIVE_VERSION"
-    AC_MSG_RESULT([$GUILE_SITE])
-    AC_SUBST([GUILE_SITE])
+    AC_MSG_CHECKING([Guile site directory])
+    guilesitedir="\${datadir}/guile/site/$GUILE_EFFECTIVE_VERSION"
+    AC_MSG_RESULT([$guilesitedir])
+    AC_SUBST(guilesitedir)
 
     # Compiled libguile-*.so extension libraries go here
-    AC_MSG_CHECKING([for Guile extension directory using FHS])
-    GUILE_EXTENSION="$libdir/guile/$GUILE_EFFECTIVE_VERSION"
+    AC_MSG_CHECKING([Guile extension directory])
+    guileextensiondir="\${libdir}/guile/$GUILE_EFFECTIVE_VERSION"
     AC_MSG_RESULT([$guileextensiondir])
-    AC_SUBST([GUILE_EXTENSION])
+    AC_SUBST(guileextensiondir)
 
     # Compiled .go scheme libraries go here
-    AC_MSG_CHECKING([for Guile object directory using FHS])
-    GUILE_SITE_CCACHE="$libdir/guile/$GUILE_EFFECTIVE_VERSION/site-ccache"
-    AC_MSG_RESULT([$GUILE_SITE_CCACHE])
-    AC_SUBST([GUILE_SITE_CCACHE])],
+    AC_MSG_CHECKING([Guile object directory])
+    guileobjectdir="\${libdir}/guile/$GUILE_EFFECTIVE_VERSION/site-ccache"
+    AC_MSG_RESULT([$guileobjectdir])
+    AC_SUBST(guileobjectdir)],
     [
     # Get the installation directories from Guile
-    GUILE_SITE_DIR
-])
+    # Installed .scm scheme libraries go here
+    AC_MSG_CHECKING([Guile site directory])
+    guilesitedir=$GUILE_SITE
+    AC_MSG_RESULT([$guilesitedir])
+    AC_SUBST(guilesitedir)
+
+    # Compiled libguile-*.so extension libraries go here
+    AC_MSG_CHECKING([Guile extension directory])
+    guileextensiondir=$GUILE_EXTENSION
+    AC_MSG_RESULT([$guileextensiondir])
+    AC_SUBST(guileextensiondir)
+
+    # Compiled .go scheme libraries go here
+    AC_MSG_CHECKING([Guile object directory])
+    guileobjectdir=$GUILE_SITE_CCACHE
+    AC_MSG_RESULT([$guileobjectdir])
+    AC_SUBST(guileobjectdir)])
 
 ################
 # Check for Libtool
@@ -58,4 +73,8 @@ LT_PREREQ([2.2])
 LT_INIT([disable-fast-install disable-static win32-dll])
 
 AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([tools/uninstalled-env], [chmod +x tools/uninstalled-env])
+AC_REQUIRE_AUX_FILE([test-driver])
+AC_REQUIRE_AUX_FILE([test-driver.scm])
+
 AC_OUTPUT

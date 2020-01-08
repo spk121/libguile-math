@@ -17,7 +17,7 @@ Copyright @copyright{} 2017, 2019 Mike Gran
 @contents
 
 @ifnottex
-@node Top, The MLG utilities library, (dir), (dir)
+@node Top
 
 @top MLG Lib
 
@@ -28,6 +28,8 @@ This manual is for MLG Lib.
 * mlg assert::
 * mlg bytevectors::
 * mlg logging::
+* mlg lists::
+* mlg port::
 * mlg strings::
 * mlg utils::
 * C procedures::
@@ -36,14 +38,14 @@ This manual is for MLG Lib.
 
 @end ifnottex
 
-@node The MLG utilities library, mlg assert, Top, Top
+@node The MLG utilities library
 @chapter The MLG utilities library
 
 Every programmer has a list of library routines that they use often.
 These are mine.  The @code{(mlg)} library is routines that seem somewhat
 basic but are not in the standard library.
 
-@node mlg assert, mlg bytevectors, The MLG utilities library, Top
+@node mlg assert
 @chapter mlg assert
 
 Here are some assert macros.  These are different in that they will
@@ -64,7 +66,7 @@ For example @code{(assert symbol 'foo)} will error if
 @code{(symbol? 'foo)} evaluates to @code{#f}.
 @end deffn
 
-@node mlg bytevectors, mlg logging, mlg assert, Top
+@node mlg bytevectors
 @chapter mlg bytevectors
 Here are some helper functions for working with bytevectors.
 
@@ -79,7 +81,7 @@ bytevector, and the bytes required, this returns a newly allocated
 bytevector containing that region of the source.
 @end deffn
 
-@node mlg logging, mlg strings, mlg bytevectors, Top
+@node mlg logging
 @chapter mlg logging
 Every programmer in the world has written their own logging class.
 This is mine.  It is largely stolen from GLib.
@@ -238,7 +240,30 @@ This syntax generates a debug message giving the number of seconds that
 have passed since logging began
 @end deffn
 
-@node mlg strings, mlg utils, mlg logging, Top
+@node mlg lists
+@chapter mlg lists
+
+@deffn Procedure list-range-check-n? list n low high
+Return @code{#t} if the first N elements in the list is between
+@var{low} (inclusive) and @var{high} (inclusive).  If the list has fewer
+than N elements, check all the elements in the list.
+@end deffn
+
+@node mlg port
+@chapter mlg port
+
+@deffn Procedure read-line-terminator #:optional port
+Reads and returns, as a string, one awaiting line terminator character
+combination from @var{port}, or from the current input port, of
+@var{port} is not specified.  If the port is at @code{EOF} it returns
+@code{<eof>}.  The line terminators searched are return, linefeed,
+vtab, return + linefeed, Unicode line separator, and Unicode paragraph
+separator.  If the next available character in the port is not a line
+terminator character, it returns the empty string.
+@end deffn
+
+
+@node mlg strings
 @chapter mlg strings
 
 @deffn Procedure string-ensure-single-newline str
@@ -253,7 +278,13 @@ procedure @var{f} of the elements of a list of strings @var{lst},
 appending the results together as a single string.
 @end deffn
 
-@node mlg utils, C procedures, mlg strings, Top
+@deffn Procedure string-ref-safe str i
+Returns the character in the string @var{str} at position @var{i}, or
+@code{#\null} on error.
+@end deffn
+
+
+@node mlg utils
 @chapter mlg utils
 
 The bulk of this module is procedures that search for special directory
@@ -284,7 +315,7 @@ no matching file is found, @code{#f} is returns.
 This procedure does not recursively search subdirectories.
 @end deffn
 
-@node C procedures, Index, mlg utils, Top
+@node C procedures
 @chapter The Ryu C-like procedures library
 
 This is a library of procedure that are intentionally similar to C
@@ -316,11 +347,9 @@ This is the first item.
 This is the second item.
 @end enumerate
 
-@node Index,  , C procedures, Top
+@node Index
 @unnumbered Index
 
 @printindex cp
 
 @bye
-
-
